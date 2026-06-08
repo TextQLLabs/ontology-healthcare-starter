@@ -1,53 +1,79 @@
--- filters/diagnosis.tql — reusable clinical filter predicates.
--- These are the safe way to "find patients with condition X". They compile to SQL that
--- targets the right ICD-10 branch or grouper bucket — never a hand-guessed code list.
--- Pair with dimensions/diagnosis.tql. Alias for the condition fact is `c`.
+-- filters/diagnosis.tql — reusable clinical filter predicates. VERIFIED columns 2026-06-08.
+-- The safe way to "find patients with condition X" — compiles to SQL targeting the right
+-- ICD-10 branch/grouper, never a hand-guessed code. Pair with dimensions/diagnosis.tql.
+-- Condition fact alias = `c`; codes are in c.normalized_code / c.normalized_code_type.
 
--- ── Match by ICD-10 category prefix (the hierarchy rollup) ────────────────────
--- has_icd10_prefix("E11") matches all Type-2 diabetes codes (E11, E11.x).
--- Pass a single prefix or a set; matches on the dot-stripped code.
+-- ── Match by ICD-10 category prefix (hierarchy rollup) ────────────────────────
 let has_icd10_prefix = (prefix: String) ->
-  sql"REPLACE(c.code, '.', '') LIKE ${prefix} || '%'"
+  sql"REPLACE(c.normalized_code, '.', '') LIKE ${prefix} || '%'"
 
 let has_icd10_prefix_in = (prefixes: List<String>) ->
-  sql"EXISTS (SELECT 1 FROM UNNEST(${prefixes}) AS px WHERE REPLACE(c.code,'.','') LIKE px || '%')"
-  -- Redshift note: UNNEST is Redshift-Spectrum/PG-style; if unavailable, expand the set to
-  -- a chained OR of LIKE predicates in the surface. BigQuery: UNNEST works natively.
+  sql"EXISTS (SELECT 1 FROM UNNEST(${prefixes}) AS px WHERE REPLACE(c.normalized_code,'.','') LIKE px || '%')"
+  -- Redshift: if UNNEST is unavailable, expand to chained OR of LIKE in the surface.
 
--- ── Match by grouper (the analytic unit — prefer these) ───────────────────────
--- in_ccsr("END003") -> all codes AHRQ maps to that CCSR category (e.g. diabetes mellitus).
+-- ── Match by grouper (needs terminology.* loaded; see reference/terminology/) ──
+-- in_ccsr("END003") -> the AHRQ CCSR category (joins terminology.ccsr_icd10cm cx).
 let in_ccsr = (category: String) ->
-  sql"cx.ccsr_category = ${category}"
+  sql"(cx.default_ccsr_ip = ${category} OR cx.default_ccsr_op = ${category})"
 
--- is_chronic("Diabetes") -> CCW chronic-condition flag match; null arg -> any chronic.
+-- is_chronic("Diabetes") -> CCW chronic flag (joins terminology.ccw_chronic ccw); null -> any.
 let is_chronic = (condition: String?) ->
   if condition == null
     then sql"ccw.chronic_condition IS NOT NULL"
     else sql"ccw.chronic_condition = ${condition}"
 
--- in_hcc("HCC18") -> codes mapping to a CMS-HCC risk category.
+-- in_hcc("38") -> CMS-HCC risk category (joins terminology.cmshcc_dx_hcc hx).
 let in_hcc = (hcc: String) ->
   sql"hx.hcc = ${hcc}"
 
--- ── Named value sets (the human-friendly entry point) ─────────────────────────
--- in_value_set("diabetes") expands to a governed, reviewable definition. Keep the set
--- definitions HERE (in git, diff-able) — this is what makes the ontology robust: the
--- customer asks for "diabetes", Ana resolves it the same way every time.
-let value_set = (name: Set<"diabetes" | "chf" | "copd" | "ckd" | "hypertension" | "depression">) ->
-  matchSet name {
-    -- diabetes mellitus: ICD-10 E08–E13
-    "diabetes"     -> sql"LEFT(REPLACE(c.code,'.',''),3) BETWEEN 'E08' AND 'E13'"
-    -- congestive heart failure: I50.x (+ select I11.0/I13.x in fuller defs)
-    "chf"          -> sql"REPLACE(c.code,'.','') LIKE 'I50%'"
-    -- COPD: J44.x (+ J43.x emphysema, J41–J42 chronic bronchitis in fuller defs)
-    "copd"         -> sql"REPLACE(c.code,'.','') LIKE 'J44%'"
-    -- chronic kidney disease: N18.x
-    "ckd"          -> sql"REPLACE(c.code,'.','') LIKE 'N18%'"
-    -- essential hypertension: I10
-    "hypertension" -> sql"REPLACE(c.code,'.','') = 'I10'"
-    -- depression: F32.x (single episode) + F33.x (recurrent)
-    "depression"   -> sql"(REPLACE(c.code,'.','') LIKE 'F32%' OR REPLACE(c.code,'.','') LIKE 'F33%')"
+-- ── Named value sets — SEED-FREE (the human-friendly entry point) ─────────────
+-- These resolve via inline ICD-10 ranges, so they need NO terminology tables — they run on
+-- any connector. Definitions live HERE in git (diff-able, reviewable): the customer asks for
+-- "diabetes" and Ana resolves it the same way every time. Ranges align to the CCW chronic
+-- conditions where applicable, so a value set doubles as a chronic cohort without a crosswalk.
+let value_set = (name: Set<
+    "diabetes" | "hypertension" | "hyperlipidemia" | "chf" | "ischemic_heart_disease" |
+    "acute_mi" | "atrial_fibrillation" | "stroke_tia" | "copd" | "asthma" | "ckd" |
+    "depression" | "anxiety" | "alzheimers_dementia" | "osteoporosis" |
+    "rheumatoid_arthritis" | "osteoarthritis" | "hypothyroidism" | "anemia" | "obesity" |
+    "chronic_hepatitis" | "hiv" | "substance_use_disorder" |
+    "cancer_breast" | "cancer_lung" | "cancer_colorectal" | "cancer_prostate">) ->
+  let cat = sql"LEFT(REPLACE(c.normalized_code,'.',''),3)"      -- 3-char ICD-10 category
+  let code = sql"REPLACE(c.normalized_code,'.','')"             -- full dot-stripped code
+  in matchSet name {
+    -- ── CCW chronic conditions (approximate ICD-10 definitions) ──
+    "diabetes"               -> sql"${cat} BETWEEN 'E08' AND 'E13'"
+    "hypertension"           -> sql"${cat} BETWEEN 'I10' AND 'I16'"
+    "hyperlipidemia"         -> sql"${cat} = 'E78'"
+    "chf"                    -> sql"(${code} LIKE 'I50%' OR ${code} IN ('I110','I130','I132'))"
+    "ischemic_heart_disease" -> sql"${cat} BETWEEN 'I20' AND 'I25'"
+    "acute_mi"               -> sql"${cat} BETWEEN 'I21' AND 'I22'"
+    "atrial_fibrillation"    -> sql"${code} LIKE 'I48%'"
+    "stroke_tia"             -> sql"(${cat} BETWEEN 'I60' AND 'I69' OR ${code} LIKE 'G45%')"
+    "copd"                   -> sql"${cat} BETWEEN 'J40' AND 'J44'"
+    "asthma"                 -> sql"${code} LIKE 'J45%'"
+    "ckd"                    -> sql"${code} LIKE 'N18%'"
+    "depression"             -> sql"(${code} LIKE 'F32%' OR ${code} LIKE 'F33%' OR ${code} = 'F341')"
+    "anxiety"                -> sql"${cat} BETWEEN 'F40' AND 'F41'"
+    "alzheimers_dementia"    -> sql"(${code} LIKE 'G30%' OR ${code} LIKE 'G31%' OR ${cat} BETWEEN 'F01' AND 'F03')"
+    "osteoporosis"           -> sql"${cat} BETWEEN 'M80' AND 'M81'"
+    "rheumatoid_arthritis"   -> sql"${cat} BETWEEN 'M05' AND 'M06'"
+    "osteoarthritis"         -> sql"${cat} BETWEEN 'M15' AND 'M19'"
+    "hypothyroidism"         -> sql"${code} LIKE 'E03%'"
+    "anemia"                 -> sql"${cat} BETWEEN 'D50' AND 'D64'"
+    "obesity"                -> sql"${code} LIKE 'E66%'"
+    "chronic_hepatitis"      -> sql"${code} LIKE 'B18%'"
+    -- ── Cancers ──
+    "cancer_breast"          -> sql"${code} LIKE 'C50%'"
+    "cancer_lung"            -> sql"${code} LIKE 'C34%'"
+    "cancer_colorectal"      -> sql"${cat} BETWEEN 'C18' AND 'C21'"
+    "cancer_prostate"        -> sql"${code} = 'C61'"
+    -- ── SENSITIVE (42 CFR Part 2 / heightened protection) — gate per governance-phi.md ──
+    "hiv"                    -> sql"(${code} = 'B20' OR ${code} = 'Z21')"
+    "substance_use_disorder" -> sql"${cat} BETWEEN 'F10' AND 'F19'"
   }
-  -- ⚠️ These are STARTER definitions for demo/exploration. For regulatory or quality
-  -- reporting, replace with the authoritative VSAC / HEDIS value set and cite it in
-  -- notes/diagnosis-coding.md. Value-set choice is a governed decision, not a default.
+  -- ⚠️ STARTER definitions for demo/exploration — NOT certified value sets. For regulatory or
+  --    quality reporting, hydrate the authoritative VSAC/HEDIS set (reference/terminology/
+  --    value-sets.md) and cite it in notes/diagnosis-coding.md. Value-set choice is governed.
+  -- ⚠️ hiv / substance_use_disorder are SENSITIVE: do not surface member-level detail without
+  --    authorization; apply strict small-cell suppression (notes/governance-phi.md).

@@ -1,11 +1,10 @@
--- hedis_measure.tql — TEMPLATE for a HEDIS-style quality measure (governed).
--- VERIFIED partial 2026-06-08: condition uses normalized_code; no patient table (person CTE).
+-- hedis_measure.tql — TEMPLATE for a HEDIS-style quality measure (governed). VERIFIED 2026-06-08.
 -- Modeled on HbA1c testing for diabetics. Clone per measure; swap value sets.
 --
 -- ⚠️ HEDIS value sets are NCQA-licensed; use certified VSAC eCQM sets via fetch_vsac.py for
 --    reporting (value-sets.md). Codes below are ILLUSTRATIVE starters.
--- ⚠️ lab_result columns NOT yet verified on this connector — confirm loinc/result-date column
---    names (the table exists; its columns weren't pulled in the dry run). Adjust the numerator.
+-- lab_result CONFIRMED columns: normalized_component_code (LOINC), result_datetime (timestamp),
+--    result (VARCHAR), collection_datetime. No `patient` table -> person CTE for age.
 
 params {
   measurement_year_start: String = "2018-01-01"
@@ -31,12 +30,11 @@ in sql''
       AND DATEDIFF('year', p.birth_date, DATE ${measurement_year_end}) BETWEEN ${age_min} AND ${age_max}
   ),
   numer AS (
-    -- numerator: an HbA1c test. lab_result columns UNVERIFIED — adjust loinc_code/result_date
-    -- to the real column names. Illustrative LOINC for HbA1c: 4548-4, 4549-2, 17856-6.
+    -- numerator: an HbA1c test. CONFIRMED: LOINC in normalized_component_code, date in result_datetime.
     SELECT DISTINCT l.person_id
     FROM tuva.lab_result l
-    WHERE l.loinc_code IN ('4548-4','4549-2','17856-6')
-      AND l.result_date BETWEEN DATE ${measurement_year_start} AND DATE ${measurement_year_end}
+    WHERE l.normalized_component_code IN ('4548-4','17856-6')          -- HbA1c LOINC
+      AND CAST(l.result_datetime AS DATE) BETWEEN DATE ${measurement_year_start} AND DATE ${measurement_year_end}
   )
   SELECT (SELECT COUNT(*) FROM denom)                                                       AS eligible,
          (SELECT COUNT(*) FROM denom d WHERE d.person_id IN (SELECT person_id FROM numer))  AS met,

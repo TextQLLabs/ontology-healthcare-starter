@@ -1,22 +1,34 @@
--- cost_pmpm.tql — cost per member per month (governed). VERIFIED column names 2026-06-08.
+-- cost_pmpm.tql — cost per member per month (governed). VERIFIED + golden-tested 2026-06-08.
 -- Numerator = medical claim cost; denominator = member months. See notes/cost-definition.md.
--- No `patient` table: state comes from the eligibility-derived person CTE.
 --
--- DECISION: denominator basis = prorated (actuarial default) vs fullmonth.
--- NUMERATOR: charge_amount is the safe default; paid_amount / allowed_amount / total_cost_amount
---   also EXIST on medical_claim here — confirm their population (dry-run-prompt Q5) and switch
---   to allowed_amount or total_cost_amount if well-populated (then update notes/cost-definition.md).
+-- DECISION (denominator): basis = prorated (actuarial default) vs fullmonth.
+--   * fullmonth  = COUNT(*) of member_months rows.
+--   * prorated   = total enrolled days / 30.44 (avg days/month), summed over eligibility spans.
+--     ⚠️ FIXED 2026-06-08: the old formula only counted the FIRST month of each span
+--        (LAST_DAY of start), undercounting ~13x (golden run: 2,368 vs 31,184 fullmonth).
+--        Now sums the full span.
+-- DECISION (numerator): `charge` = billed charges (inflated; golden run gave ~$13k PMPM).
+--   `allowed` / `paid` / `total` are usually the real-cost basis — switch the default once
+--   their population is confirmed (see notes/cost-definition.md). All four columns exist here.
 
 params {
   basis: Set<"prorated" | "fullmonth"> = ["prorated"]
+  cost:  Set<"charge" | "allowed" | "paid" | "total"> = ["charge"]
   state: String?
 }
 
 let
   state_filter = if state == null then sql"" else sql"AND pe.state = ${state}"
+  cost_col = matchSet cost {
+    "charge"  -> sql"mc.charge_amount"
+    "allowed" -> sql"mc.allowed_amount"
+    "paid"    -> sql"mc.paid_amount"
+    "total"   -> sql"mc.total_cost_amount"
+  }
   member_months_expr = matchSet basis {
     "fullmonth" -> sql"(SELECT COUNT(*) FROM tuva.member_months)"
-    "prorated"  -> sql"(SELECT SUM((DATEDIFF('day', e.enrollment_start_date, LEAST(e.enrollment_end_date, LAST_DAY(e.enrollment_start_date))) + 1) / 30.0) FROM tuva.eligibility e)"
+    -- prorated: total enrolled days / 30.44, over all eligibility spans (null end -> cap at analysis date)
+    "prorated"  -> sql"(SELECT SUM((DATEDIFF('day', e.enrollment_start_date, COALESCE(e.enrollment_end_date, DATE '2018-12-31')) + 1) / 30.44) FROM tuva.eligibility e)"
   }
 
 in sql''
@@ -25,9 +37,9 @@ in sql''
     FROM tuva.eligibility GROUP BY person_id
   )
   SELECT
-    SUM(mc.charge_amount)                                            AS total_charge,
-    ${member_months_expr}                                            AS member_months,
-    SUM(mc.charge_amount)::DECIMAL / NULLIF(${member_months_expr}, 0) AS cost_pmpm
+    SUM(${cost_col})                                            AS total_cost,
+    ${member_months_expr}                                       AS member_months,
+    SUM(${cost_col})::DECIMAL / NULLIF(${member_months_expr}, 0) AS cost_pmpm
   FROM tuva.medical_claim mc
   JOIN person pe ON pe.person_id = mc.person_id
   WHERE 1=1

@@ -12,19 +12,22 @@ renders with its **default params** (Redshift dialect). Then fill the Expected c
 
 ---
 
-## Q1 — cost_pmpm (basis=prorated)
+## Q1 — cost_pmpm (basis=prorated)  ← FIXED formula (full span / 30.44)
 ```sql
 SELECT
   SUM(mc.charge_amount) AS total_charge,
   (SELECT SUM((DATEDIFF('day', e.enrollment_start_date,
-        LEAST(e.enrollment_end_date, LAST_DAY(e.enrollment_start_date))) + 1) / 30.0)
+        COALESCE(e.enrollment_end_date, DATE '2018-12-31')) + 1) / 30.44)
    FROM tuva.eligibility e) AS member_months,
   SUM(mc.charge_amount)::DECIMAL
    / NULLIF((SELECT SUM((DATEDIFF('day', e.enrollment_start_date,
-        LEAST(e.enrollment_end_date, LAST_DAY(e.enrollment_start_date))) + 1) / 30.0)
+        COALESCE(e.enrollment_end_date, DATE '2018-12-31')) + 1) / 30.44)
         FROM tuva.eligibility e), 0) AS cost_pmpm
 FROM tuva.medical_claim mc;
 ```
+> The earlier formula counted only the first month of each span (member_months came back 2,368
+> vs 31,184 fullmonth → PMPM 13× too high). This sums the full enrolled span. To use a real-cost
+> numerator instead of billed charges, swap `mc.charge_amount` → `mc.allowed_amount` (or `paid`/`total_cost`).
 
 ## Q2 — cost_pmpm (basis=fullmonth)
 ```sql
@@ -138,12 +141,52 @@ SELECT
 FROM tuva.encounter e;
 ```
 
-## Q9 — rx_adherence_pdc  ← PENDING `medication` columns
-Confirm columns first: `SELECT column_name FROM information_schema.columns WHERE table_schema='tuva' AND table_name='medication';`
-then map dispensing_date / days_supply / rxcui and run the surface. (Template in `ontology/queries/rx_adherence_pdc.tql`.)
+## Q9 — rx_adherence_pdc (seed-free; pass RxNorm codes)  ← columns confirmed
+`medication` columns: `dispensing_date` (date), `days_supply` (VARCHAR → cast), `rxnorm_code`.
+Replace the example RxNorm list with your real drug set.
+```sql
+WITH fills AS (
+  SELECT m.person_id,
+         LEAST(CAST(m.days_supply AS INTEGER),
+               DATEDIFF('day', m.dispensing_date, DATE '2018-12-31') + 1) AS covered_days
+  FROM tuva.medication m
+  WHERE m.dispensing_date BETWEEN DATE '2018-01-01' AND DATE '2018-12-31'
+    AND m.rxnorm_code IN ('860975','861007','899993')          -- example antidiabetics; swap in yours
+),
+member_pdc AS (
+  SELECT person_id,
+         LEAST(SUM(covered_days)::DECIMAL / NULLIF(365, 0), 1.0) AS pdc
+  FROM fills GROUP BY person_id
+)
+SELECT COUNT(*) AS members_measured,
+       AVG(pdc) AS mean_pdc,
+       SUM(CASE WHEN pdc >= 0.80 THEN 1 ELSE 0 END)::DECIMAL / NULLIF(COUNT(*),0) AS pct_adherent
+FROM member_pdc;
+```
 
-## Q10 — hedis_measure (HbA1c, diabetics 18–75)  ← PENDING `lab_result` columns
-Confirm `lab_result` loinc/date columns, then run the surface (`ontology/queries/hedis_measure.tql`).
+## Q10 — hedis_measure (HbA1c, diabetics 18–75)  ← columns confirmed
+`lab_result`: `normalized_component_code` (LOINC), `result_datetime` (timestamp).
+```sql
+WITH person AS (SELECT person_id, MIN(birth_date) AS birth_date FROM tuva.eligibility GROUP BY person_id),
+denom AS (
+  SELECT DISTINCT c.person_id
+  FROM tuva.condition c JOIN person p ON p.person_id = c.person_id
+  WHERE c.normalized_code_type = 'icd-10-cm'
+    AND LEFT(REPLACE(c.normalized_code,'.',''),3) BETWEEN 'E08' AND 'E13'
+    AND c.recorded_date BETWEEN DATE '2018-01-01' AND DATE '2018-12-31'
+    AND DATEDIFF('year', p.birth_date, DATE '2018-12-31') BETWEEN 18 AND 75
+),
+numer AS (
+  SELECT DISTINCT l.person_id
+  FROM tuva.lab_result l
+  WHERE l.normalized_component_code IN ('4548-4','17856-6')     -- HbA1c LOINC
+    AND CAST(l.result_datetime AS DATE) BETWEEN DATE '2018-01-01' AND DATE '2018-12-31'
+)
+SELECT (SELECT COUNT(*) FROM denom) AS eligible,
+       (SELECT COUNT(*) FROM denom d WHERE d.person_id IN (SELECT person_id FROM numer)) AS met,
+       (SELECT COUNT(*) FROM denom d WHERE d.person_id IN (SELECT person_id FROM numer))::DECIMAL
+         / NULLIF((SELECT COUNT(*) FROM denom),0) AS measure_rate;
+```
 
 ---
 

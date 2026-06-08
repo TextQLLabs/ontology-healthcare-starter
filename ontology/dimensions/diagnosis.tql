@@ -1,0 +1,61 @@
+-- dimensions/diagnosis.tql — the ICD-10 terminology layer. THE centerpiece.
+--
+-- Why this exists: ~70,000 ICD-10-CM codes are useless as a raw filter. Analysts think
+-- in HIERARCHY (codes roll up) and GROUPERS (clinically/financially meaningful buckets).
+-- This module encodes both so Ana resolves "diabetes prevalence" to the right branch
+-- DETERMINISTICALLY instead of guessing codes.
+--
+-- Backings: relations/condition.tql (the dx fact) + terminology crosswalks (schema.tql).
+-- Dialect: REDSHIFT. Canonical grouper per question: see notes/diagnosis-coding.md.
+--
+-- ── The ICD-10-CM hierarchy ───────────────────────────────────────────────────
+--   E11.9  Type 2 DM w/o complications        full code   (most specific)
+--    └ E11   Type 2 diabetes mellitus          category    (3-char — the rollup unit)
+--       └ E08–E13  Diabetes block              block       (range)
+--          └ Chapter 4: Endocrine/metabolic    chapter     (E00–E89)
+
+-- Normalized, dot-stripped code (E11.9 -> E119). Aliases assume the condition fact is `c`.
+let code        = sql"c.code"
+let code_norm   = sql"REPLACE(c.code, '.', '')"
+let code_system = sql"c.code_type"                        -- 'icd-10-cm' | 'icd-9-cm'
+
+-- ── Level 1: the 3-char category (E11.9 -> E11) ───────────────────────────────
+-- The single most-used rollup. Built by string op — no join needed.
+let icd10_category = sql"LEFT(REPLACE(c.code, '.', ''), 3)"
+
+-- ── Level 2: chapter & block (join to the shipped range map) ──────────────────
+-- terminology.icd10cm_chapters has (range_start, range_end, chapter_num, chapter_name,
+-- block_code, block_name). We compare on the 3-char alpha-numeric category.
+-- JOIN this in the surface:  JOIN terminology.icd10cm_chapters ch
+--   ON LEFT(REPLACE(c.code,'.',''),3) BETWEEN ch.range_start AND ch.range_end
+let icd10_chapter = sql"ch.chapter_name"
+let icd10_block   = sql"ch.block_name"
+
+-- ── Grouper 1: CCSR (AHRQ) — ~530 clinical categories. DEFAULT for "what condition". ──
+-- terminology.ccsr_categories: (icd10cm_code, ccsr_category, ccsr_description).
+-- JOIN:  LEFT JOIN terminology.ccsr_categories cx ON cx.icd10cm_code = REPLACE(c.code,'.','')
+let ccsr_category    = sql"cx.ccsr_category"
+let ccsr_description = sql"cx.ccsr_description"
+
+-- ── Grouper 2: CMS-HCC — risk adjustment. Use for RAF / risk burden. ──────────
+-- terminology.hcc_categories: (icd10cm_code, hcc, hcc_description, raf_weight).
+-- JOIN:  LEFT JOIN terminology.hcc_categories hx ON hx.icd10cm_code = REPLACE(c.code,'.','')
+let hcc_category    = sql"hx.hcc"
+let hcc_description = sql"hx.hcc_description"
+let raf_weight      = sql"hx.raf_weight"
+
+-- ── Grouper 3: CCW chronic conditions — 27 standard chronic flags. ────────────
+-- terminology.ccw_chronic: (icd10cm_code, chronic_condition).
+-- JOIN:  LEFT JOIN terminology.ccw_chronic ccw ON ccw.icd10cm_code = REPLACE(c.code,'.','')
+let chronic_condition = sql"ccw.chronic_condition"
+let is_chronic        = sql"(ccw.chronic_condition IS NOT NULL)"
+
+-- ── Coding context (from relations/condition.tql) ─────────────────────────────
+let is_primary_dx = sql"(c.dx_rank = 1)"                  -- principal/reason-for-visit
+let present_on_admission = sql"c.present_on_admission"     -- comorbidity vs complication
+
+-- ── ICD-9 handling ────────────────────────────────────────────────────────────
+-- For claims before 2015-10-01 (code_type='icd-9-cm'), translate via GEMs before
+-- applying any ICD-10 grouper:
+--   LEFT JOIN terminology.icd9_to_icd10_gem g ON g.icd9_code = REPLACE(c.code,'.','')
+-- then group on COALESCE(g.icd10_code, REPLACE(c.code,'.','')). See notes/diagnosis-coding.md.

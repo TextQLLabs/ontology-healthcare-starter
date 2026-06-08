@@ -1,0 +1,25 @@
+-- relations/condition.tql — the Diagnosis fact.
+-- One row per diagnosis recorded on a claim/encounter. The grain that ALL disease
+-- prevalence, comorbidity, and risk analysis sits on. Backing: schema.tql `condition`.
+--
+-- ⚠️ Coding: `code_type` distinguishes icd-10-cm (claims >= 2015-10-01) from icd-9-cm
+--    (older). NEVER filter raw codes you guessed — go through dimensions/diagnosis.tql.
+--    Primary vs secondary dx and POA matter — see notes/diagnosis-coding.md.
+
+-- Source + key columns this relation exports.
+let source = sql"tuva.condition"
+
+-- Stable columns (confirm names on discovery):
+--   person_id        join key to patient / eligibility / encounter
+--   encounter_id     links the dx to its visit (for reason-for-visit analysis)
+--   code             the diagnosis code (string)
+--   code_type        'icd-10-cm' | 'icd-9-cm'  (drives which crosswalk applies)
+--   dx_rank          1 = primary/principal; >1 = secondary  (reason-for-visit vs burden)
+--   present_on_admission   'Y'/'N'/'U'/'W'  (distinguishes comorbidity from complication)
+--   recorded_date    date the dx was recorded
+
+-- Normalized code: strip the dot so E11.9 -> E119 for prefix/range matching.
+let code_norm = sql"REPLACE(c.code, '.', '')"
+
+-- The 3-char ICD-10-CM category (E11.9 -> E11), the rollup unit most analytics use.
+let icd10_category = sql"LEFT(REPLACE(c.code, '.', ''), 3)"

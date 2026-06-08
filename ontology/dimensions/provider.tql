@@ -1,0 +1,12 @@
+-- dimensions/provider.tql — provider grouping. Backing: relations (practitioner `pr`).
+-- Specialty/taxonomy for attribution, network, and pattern-of-care analysis.
+
+let npi       = sql"pr.npi"               -- National Provider Identifier
+let specialty = sql"pr.specialty"          -- provider specialty (free-text or coded)
+
+-- NUCC provider taxonomy (structural — the customer supplies the licensed/standard map).
+-- Roll specialty up to a grouping via a customer-supplied taxonomy table if present.
+let taxonomy_code = sql"pr.taxonomy_code"
+
+-- Provider organization / facility, when modeled.
+let provider_org = sql"pr.organization_name"

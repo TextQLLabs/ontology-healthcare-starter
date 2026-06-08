@@ -1,0 +1,17 @@
+-- relations/pharmacy_claim.tql — Pharmacy fill fact. Backing: schema.tql `pharmacy_claim`.
+-- One row per dispensing event. Drives adherence (PDC/MPR) and Rx spend.
+
+let source = sql"tuva.pharmacy_claim"
+
+-- Stable columns:
+--   person_id        join key
+--   ndc              National Drug Code (the dispensed product) -> dimensions/drug.tql
+--   rxcui            RxNorm concept (normalized drug) when present
+--   fill_date / dispensing_date
+--   days_supply      basis for PDC (proportion of days covered)
+--   quantity
+--   paid_amount      Rx spend (pharmacy paid is generally better-populated than medical)
+
+-- Adherence building block: days covered per fill (capped at the measurement window
+-- in the surface). See queries/rx_adherence_pdc.tql.
+let days_supply_expr = sql"pc.days_supply"

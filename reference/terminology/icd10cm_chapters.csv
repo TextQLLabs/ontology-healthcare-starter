@@ -1,0 +1,23 @@
+range_start,range_end,chapter_num,chapter_name,block_code,block_name
+A00,B99,1,Certain infectious and parasitic diseases,A00-B99,Infectious and parasitic diseases
+C00,D49,2,Neoplasms,C00-D49,Neoplasms
+D50,D89,3,Diseases of the blood and blood-forming organs and immune mechanism,D50-D89,Blood and immune disorders
+E00,E89,4,"Endocrine, nutritional and metabolic diseases",E08-E13,Diabetes mellitus
+F01,F99,5,Mental and behavioral and neurodevelopmental disorders,F01-F99,Mental and behavioral disorders
+G00,G99,6,Diseases of the nervous system,G00-G99,Nervous system diseases
+H00,H59,7,Diseases of the eye and adnexa,H00-H59,Eye and adnexa
+H60,H95,8,Diseases of the ear and mastoid process,H60-H95,Ear and mastoid
+I00,I99,9,Diseases of the circulatory system,I00-I99,Circulatory system diseases
+J00,J99,10,Diseases of the respiratory system,J40-J47,Chronic lower respiratory diseases
+K00,K95,11,Diseases of the digestive system,K00-K95,Digestive system diseases
+L00,L99,12,Diseases of the skin and subcutaneous tissue,L00-L99,Skin and subcutaneous tissue
+M00,M99,13,Diseases of the musculoskeletal system and connective tissue,M00-M99,Musculoskeletal system
+N00,N99,14,Diseases of the genitourinary system,N17-N19,Acute kidney failure and chronic kidney disease
+O00,O9A,15,"Pregnancy, childbirth and the puerperium",O00-O9A,Pregnancy and childbirth
+P00,P96,16,Certain conditions originating in the perinatal period,P00-P96,Perinatal conditions
+Q00,Q99,17,"Congenital malformations, deformations and chromosomal abnormalities",Q00-Q99,Congenital malformations
+R00,R99,18,"Symptoms, signs and abnormal clinical and laboratory findings NEC",R00-R99,Symptoms and abnormal findings
+S00,T88,19,"Injury, poisoning and certain other consequences of external causes",S00-T88,Injury and poisoning
+V00,Y99,20,External causes of morbidity,V00-Y99,External causes
+Z00,Z99,21,Factors influencing health status and contact with health services,Z00-Z99,Factors influencing health status
+U00,U85,22,Codes for special purposes,U00-U85,Special purposes (incl. COVID-19 U07.1)

@@ -1,0 +1,21 @@
+-- dimensions/patient.tql — member grouping attributes. Backing: relations/patient.tql (`p`).
+-- Demographics + geography. Health-equity attributes are governed (governance-phi.md).
+
+-- Age band from birth_date relative to the analysis date (Tuva demo: 2018-12-31).
+let age = sql"DATEDIFF('year', p.birth_date, DATE '2018-12-31')"
+let age_band = sql"""
+  CASE
+    WHEN DATEDIFF('year', p.birth_date, DATE '2018-12-31') < 18 THEN '0-17'
+    WHEN DATEDIFF('year', p.birth_date, DATE '2018-12-31') < 35 THEN '18-34'
+    WHEN DATEDIFF('year', p.birth_date, DATE '2018-12-31') < 50 THEN '35-49'
+    WHEN DATEDIFF('year', p.birth_date, DATE '2018-12-31') < 65 THEN '50-64'
+    ELSE '65+'
+  END
+"""
+
+let sex   = sql"p.sex"
+let state = sql"p.state"                 -- 2-letter; geographic rollup
+
+-- Health-equity dimensions — surface only in aggregate, per governance-phi.md.
+let race      = sql"p.race"
+let ethnicity = sql"p.ethnicity"

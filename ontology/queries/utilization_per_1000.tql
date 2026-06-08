@@ -1,0 +1,30 @@
+-- utilization_per_1000.tql — utilization rate per 1,000 members (annualized), governed.
+-- The standard payer utilization unit. events / member-months * 12000.
+-- Dialect: REDSHIFT (dev.tuva). See dimensions/diagnosis.tql for setting flags.
+
+params {
+  -- Which utilization event to count.
+  metric: Set<"inpatient_admits" | "ed_visits" | "bed_days"> = ["inpatient_admits"]
+  state: String?
+}
+
+let
+  state_filter = if state == null then sql"" else sql"AND p.state = ${state}"
+  event_expr = matchSet metric {
+    "inpatient_admits" -> sql"COUNT(*) FILTER (WHERE e.encounter_type = 'acute inpatient')"
+    "ed_visits"        -> sql"COUNT(*) FILTER (WHERE e.encounter_type = 'emergency department')"
+    "bed_days"         -> sql"SUM(CASE WHEN e.encounter_type = 'acute inpatient' THEN e.length_of_stay ELSE 0 END)"
+  }
+  member_months = sql"(SELECT COUNT(*) FROM tuva.member_months)"
+
+in sql''
+  SELECT
+    ${event_expr}                                          AS events,
+    ${member_months}                                       AS member_months,
+    (${event_expr})::DECIMAL / NULLIF(${member_months},0) * 12000 AS per_1000_annualized
+  FROM tuva.encounter e
+  JOIN tuva.patient p ON p.person_id = e.person_id
+  WHERE 1=1
+    ${state_filter}
+''
+  -- Note: per-1000 annualized = events / member-months * 12 (months) * 1000 (members) = *12000.

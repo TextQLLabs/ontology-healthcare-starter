@@ -1,0 +1,53 @@
+-- filters/diagnosis.tql — reusable clinical filter predicates.
+-- These are the safe way to "find patients with condition X". They compile to SQL that
+-- targets the right ICD-10 branch or grouper bucket — never a hand-guessed code list.
+-- Pair with dimensions/diagnosis.tql. Alias for the condition fact is `c`.
+
+-- ── Match by ICD-10 category prefix (the hierarchy rollup) ────────────────────
+-- has_icd10_prefix("E11") matches all Type-2 diabetes codes (E11, E11.x).
+-- Pass a single prefix or a set; matches on the dot-stripped code.
+let has_icd10_prefix = (prefix: String) ->
+  sql"REPLACE(c.code, '.', '') LIKE ${prefix} || '%'"
+
+let has_icd10_prefix_in = (prefixes: List<String>) ->
+  sql"EXISTS (SELECT 1 FROM UNNEST(${prefixes}) AS px WHERE REPLACE(c.code,'.','') LIKE px || '%')"
+  -- Redshift note: UNNEST is Redshift-Spectrum/PG-style; if unavailable, expand the set to
+  -- a chained OR of LIKE predicates in the surface. BigQuery: UNNEST works natively.
+
+-- ── Match by grouper (the analytic unit — prefer these) ───────────────────────
+-- in_ccsr("END003") -> all codes AHRQ maps to that CCSR category (e.g. diabetes mellitus).
+let in_ccsr = (category: String) ->
+  sql"cx.ccsr_category = ${category}"
+
+-- is_chronic("Diabetes") -> CCW chronic-condition flag match; null arg -> any chronic.
+let is_chronic = (condition: String?) ->
+  if condition == null
+    then sql"ccw.chronic_condition IS NOT NULL"
+    else sql"ccw.chronic_condition = ${condition}"
+
+-- in_hcc("HCC18") -> codes mapping to a CMS-HCC risk category.
+let in_hcc = (hcc: String) ->
+  sql"hx.hcc = ${hcc}"
+
+-- ── Named value sets (the human-friendly entry point) ─────────────────────────
+-- in_value_set("diabetes") expands to a governed, reviewable definition. Keep the set
+-- definitions HERE (in git, diff-able) — this is what makes the ontology robust: the
+-- customer asks for "diabetes", Ana resolves it the same way every time.
+let value_set = (name: Set<"diabetes" | "chf" | "copd" | "ckd" | "hypertension" | "depression">) ->
+  matchSet name {
+    -- diabetes mellitus: ICD-10 E08–E13
+    "diabetes"     -> sql"LEFT(REPLACE(c.code,'.',''),3) BETWEEN 'E08' AND 'E13'"
+    -- congestive heart failure: I50.x (+ select I11.0/I13.x in fuller defs)
+    "chf"          -> sql"REPLACE(c.code,'.','') LIKE 'I50%'"
+    -- COPD: J44.x (+ J43.x emphysema, J41–J42 chronic bronchitis in fuller defs)
+    "copd"         -> sql"REPLACE(c.code,'.','') LIKE 'J44%'"
+    -- chronic kidney disease: N18.x
+    "ckd"          -> sql"REPLACE(c.code,'.','') LIKE 'N18%'"
+    -- essential hypertension: I10
+    "hypertension" -> sql"REPLACE(c.code,'.','') = 'I10'"
+    -- depression: F32.x (single episode) + F33.x (recurrent)
+    "depression"   -> sql"(REPLACE(c.code,'.','') LIKE 'F32%' OR REPLACE(c.code,'.','') LIKE 'F33%')"
+  }
+  -- ⚠️ These are STARTER definitions for demo/exploration. For regulatory or quality
+  -- reporting, replace with the authoritative VSAC / HEDIS value set and cite it in
+  -- notes/diagnosis-coding.md. Value-set choice is a governed decision, not a default.

@@ -1,0 +1,6 @@
+.DS_Store
+*.log
+# never commit credentials or licensed code-set bulk files
+credentials*
+*.secret
+licensed-codesets/

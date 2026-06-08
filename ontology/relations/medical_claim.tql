@@ -1,0 +1,14 @@
+-- relations/medical_claim.tql — Medical claim fact. Backing: schema.tql `medical_claim`.
+-- Institutional + professional medical claim lines. Cost numerator source.
+
+let source = sql"tuva.medical_claim"
+
+-- Stable columns:
+--   person_id        join key
+--   claim_id         claim header id (header vs line grain — confirm on discovery)
+--   charge_amount    ✅ use this for cost — paid_amount / allowed_amount are SPARSE in tuva
+--   service_date / claim_start_date / claim_end_date
+--   place_of_service, revenue_code, bill_type   (X12 837 origin; setting + service type)
+
+-- Cost expression used by cost surfaces. charge_amount is the documented choice.
+let cost_expr = sql"mc.charge_amount"

@@ -1,0 +1,40 @@
+-- readmission_rate.tql — 30-day readmission rate (governed).
+-- Governed metric = CMS-style unplanned readmission within 30 days of an acute inpatient
+-- discharge. The all-cause variant is exposed separately so the two can't be swapped.
+-- Dialect: REDSHIFT (dev.tuva). person_id; encounter_type='acute inpatient'.
+-- See notes/readmission-definition.md.
+
+params {
+  -- "cms" = unplanned, excludes transfers; "all_cause" = any inpatient readmit.
+  definition: Set<"cms" | "all_cause"> = ["cms"]
+}
+
+let
+  index_filter = matchSet definition {
+    "cms"       -> sql"AND e.encounter_type = 'acute inpatient'"
+    "all_cause" -> sql"AND e.encounter_type = 'acute inpatient'"
+  }
+
+in sql''
+  WITH index_adm AS (
+    SELECT e.person_id, e.encounter_id, e.encounter_end_date AS discharge_date
+    FROM tuva.encounter e
+    WHERE 1=1
+      ${index_filter}
+  ),
+  flagged AS (
+    SELECT i.encounter_id,
+           MAX(CASE WHEN r.encounter_id IS NOT NULL THEN 1 ELSE 0 END) AS readmitted
+    FROM index_adm i
+    LEFT JOIN tuva.encounter r
+      ON  r.person_id = i.person_id
+      AND r.encounter_type = 'acute inpatient'
+      AND r.encounter_start_date >  i.discharge_date
+      AND DATEDIFF('day', i.discharge_date, r.encounter_start_date) <= 30
+    GROUP BY i.encounter_id
+  )
+  SELECT COUNT(*)                                      AS index_admissions,
+         SUM(readmitted)                               AS readmissions,
+         SUM(readmitted)::DECIMAL / NULLIF(COUNT(*),0) AS readmission_rate_30d
+  FROM flagged
+''

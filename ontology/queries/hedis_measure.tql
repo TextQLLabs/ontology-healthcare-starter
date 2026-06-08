@@ -1,0 +1,45 @@
+-- hedis_measure.tql — TEMPLATE for a HEDIS-style quality measure (governed).
+-- Pattern = eligible population (denominator) minus exclusions, then numerator (the
+-- care event), reported as a rate. Modeled here on HbA1c testing for diabetics (CDC measure
+-- family). Clone this file per measure; swap the value sets.
+--
+-- ⚠️ HEDIS value sets are governed by NCQA; the *certified* sets come from VSAC. The codes
+--    below are ILLUSTRATIVE starters. For reporting, load the official value set and cite
+--    it in notes/diagnosis-coding.md. Measure logic (continuous enrollment, anchor date,
+--    age band) must follow the measure's technical specification.
+-- Dialect: REDSHIFT (dev.tuva).
+
+params {
+  measurement_year_start: String = "2018-01-01"
+  measurement_year_end:   String = "2018-12-31"
+  -- Age band for the eligible population (measure-specific).
+  age_min: Int = 18
+  age_max: Int = 75
+}
+
+in sql''
+  WITH denom AS (
+    -- eligible population: members with diabetes (value set) in the measurement year,
+    -- in the age band. (Continuous-enrollment check omitted in starter — add per spec.)
+    SELECT DISTINCT c.person_id
+    FROM tuva.condition c
+    JOIN tuva.patient p ON p.person_id = c.person_id
+    WHERE c.code_type = 'icd-10-cm'
+      AND LEFT(REPLACE(c.code,'.',''),3) BETWEEN 'E08' AND 'E13'        -- diabetes value set
+      AND c.recorded_date BETWEEN DATE ${measurement_year_start} AND DATE ${measurement_year_end}
+      AND DATEDIFF('year', p.birth_date, DATE ${measurement_year_end}) BETWEEN ${age_min} AND ${age_max}
+  ),
+  numer AS (
+    -- numerator: an HbA1c test (LOINC/CPT). LOINC is license-gated — match the customer's
+    -- coded lab table. Illustrative LOINC for HbA1c: 4548-4, 4549-2, 17856-6.
+    SELECT DISTINCT l.person_id
+    FROM tuva.lab_result l
+    WHERE l.loinc_code IN ('4548-4','4549-2','17856-6')
+      AND l.result_date BETWEEN DATE ${measurement_year_start} AND DATE ${measurement_year_end}
+  )
+  SELECT (SELECT COUNT(*) FROM denom)                                      AS eligible,
+         (SELECT COUNT(*) FROM denom d WHERE d.person_id IN (SELECT person_id FROM numer)) AS met,
+         (SELECT COUNT(*) FROM denom d WHERE d.person_id IN (SELECT person_id FROM numer))::DECIMAL
+           / NULLIF((SELECT COUNT(*) FROM denom),0)                        AS measure_rate
+  -- ⚠️ governance: suppress if eligible < 11.
+''

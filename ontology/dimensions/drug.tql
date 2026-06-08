@@ -1,0 +1,16 @@
+-- dimensions/drug.tql — pharmacy grouping. Backing: relations/pharmacy_claim.tql (`pc`).
+-- NDC -> RxNorm -> therapeutic class rollup for spend and adherence analysis.
+
+let ndc   = sql"pc.ndc"                    -- dispensed product (FDA NDC, public)
+let rxcui = sql"pc.rxcui"                   -- RxNorm normalized concept (public, NLM)
+
+-- Brand vs generic (drives generic dispensing rate).
+let is_generic = sql"pc.brand_generic_flag = 'generic'"
+
+-- Therapeutic class rollup. Map NDC/RxCUI -> class via a reference table the customer
+-- loads (e.g. RxNorm ATC, or Medi-Span/First Databank under their license).
+-- JOIN:  LEFT JOIN terminology.rxnorm_atc rx ON rx.rxcui = pc.rxcui
+let therapeutic_class = sql"rx.atc_class"
+
+-- HCPCS J-codes (physician-administered drugs) live on the PROCEDURE fact, not here —
+-- see dimensions/procedure.tql.

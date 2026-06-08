@@ -1,0 +1,18 @@
+-- filters/compare.tql — generic reusable comparison predicates.
+-- Building blocks composed by query surfaces. `col` is passed as a raw sql fragment.
+
+let eq      = (col: Sql, v: String)  -> sql"${col} = ${v}"
+let neq     = (col: Sql, v: String)  -> sql"${col} <> ${v}"
+let gte     = (col: Sql, v: String)  -> sql"${col} >= ${v}"
+let lte     = (col: Sql, v: String)  -> sql"${col} <= ${v}"
+let gt      = (col: Sql, v: String)  -> sql"${col} > ${v}"
+let lt      = (col: Sql, v: String)  -> sql"${col} < ${v}"
+let in_set  = (col: Sql, vs: List<String>) -> sql"${col} IN (${vs})"
+let between = (col: Sql, lo: String, hi: String) -> sql"${col} BETWEEN ${lo} AND ${hi}"
+let like    = (col: Sql, pat: String) -> sql"${col} LIKE ${pat}"
+
+-- date range on a date column, inclusive; null bound -> open-ended.
+let date_range = (col: Sql, start: String?, end: String?) ->
+  let lo = if start == null then sql"" else sql"AND ${col} >= ${start}"
+  let hi = if end   == null then sql"" else sql"AND ${col} <= ${end}"
+  in sql"1=1 ${lo} ${hi}"

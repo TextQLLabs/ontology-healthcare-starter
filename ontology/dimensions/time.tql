@@ -1,0 +1,12 @@
+-- dimensions/time.tql — calendar rollups. Apply to any date column passed as `col`.
+-- Keep the analysis "current date" pinned to the data (Tuva demo: 2018-12-31).
+
+let year       = (col: Sql) -> sql"EXTRACT(YEAR FROM ${col})"
+let month      = (col: Sql) -> sql"DATE_TRUNC('month', ${col})"     -- first-of-month
+let quarter    = (col: Sql) -> sql"DATE_TRUNC('quarter', ${col})"
+let year_month = (col: Sql) -> sql"TO_CHAR(${col}, 'YYYY-MM')"
+
+-- Rolling-window helper: TRUE if `col` falls in the N months ending at `as_of`.
+let last_n_months = (col: Sql, n: Int, as_of: String) ->
+  sql"${col} > DATEADD('month', -${n}, DATE ${as_of}) AND ${col} <= DATE ${as_of}"
+-- BigQuery: DATE_SUB(DATE ${as_of}, INTERVAL ${n} MONTH).

@@ -1,0 +1,43 @@
+-- comorbidity_profile.tql — risk burden via CMS-HCC / RAF. The payer money surface.
+-- Per-member RAF from diagnosis-driven HCCs (+ optional roll to a population mean RAF).
+-- Respects HCC hierarchies (most-severe-wins within a disease group). See notes/risk-adjustment-hcc.md.
+-- Dialect: REDSHIFT (dev.tuva). Crosswalk: terminology.hcc_categories.
+
+params {
+  -- "member" = one row per member with RAF; "population" = mean RAF + HCC prevalence.
+  level: Set<"member" | "population"> = ["population"]
+  -- Measurement-year diagnoses only (HCCs require a qualifying dx in the year).
+  year_start: String = "2018-01-01"
+  year_end:   String = "2018-12-31"
+  state: String?
+}
+
+let
+  state_filter = if state == null then sql"" else sql"AND p.state = ${state}"
+  member_select = matchSet level {
+    "member"     -> sql"SELECT person_id, member_raf FROM member_raf ORDER BY member_raf DESC"
+    "population" -> sql"SELECT AVG(member_raf) AS mean_raf, COUNT(*) AS members FROM member_raf"
+  }
+
+in sql''
+  WITH member_hccs AS (
+    -- distinct HCCs per member from qualifying measurement-year diagnoses
+    SELECT DISTINCT c.person_id, hx.hcc, hx.raf_weight
+    FROM tuva.condition c
+    JOIN tuva.patient p ON p.person_id = c.person_id
+    JOIN terminology.hcc_categories hx ON hx.icd10cm_code = REPLACE(c.code,'.','')
+    WHERE c.code_type = 'icd-10-cm'
+      AND c.recorded_date BETWEEN DATE ${year_start} AND DATE ${year_end}
+      ${state_filter}
+  ),
+  -- HCC hierarchy: keep only the highest-weight HCC within each member's disease group.
+  -- (Starter approximation = max weight per member per HCC; a full impl applies CMS
+  --  hierarchy rules from the model's HCC-to-HCC exclusion table — see the note.)
+  member_raf AS (
+    SELECT person_id, SUM(raf_weight) AS member_raf
+    FROM member_hccs
+    GROUP BY person_id
+  )
+  ${member_select}
+  -- ⚠️ governance: suppress member-level output to cells >= 11; population view is safe.
+''

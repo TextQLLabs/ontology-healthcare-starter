@@ -1,120 +1,167 @@
-# Getting Started — Healthcare & Life Sciences Ontology Starter
+# Getting Started
 
-A step-by-step guide to standing up this ontology in **your own TextQL / Ana environment**,
-connecting it to **your data**, and customizing it for **your organization** — written so you
-don't need to be a healthcare-data expert to follow it. Budget ~half a day for steps 1–4.
+This guide takes you from *"I have this ontology repo and nothing else"* to *"I'm asking Ana
+governed questions about my own data"* — mostly without leaving the Ana chat window.
+
+The whole idea: **you talk to Ana, Ana does the work.** You connect a few things once, then
+everything else — exploring your data, validating the model, customizing metrics — happens by
+asking Ana in plain English.
 
 ---
 
-## 1. What this is
+## What this is
 
-An **ontology** is a shared, version-controlled definition of *how your organization thinks
-about its data* — the business objects (members, claims, diagnoses), the metrics (cost PMPM,
-readmission rate, risk score), and the rules (which codes mean "diabetes", who can see what).
-It's **just files** (Markdown + `.tql`) in a git repo. Ana (TextQL's analyst agent) reads
-these files and uses them to answer questions with **consistent, governed SQL** instead of
-guessing.
+An **ontology** is a shared definition of how your organization thinks about its data: the
+business objects (members, claims, diagnoses), the metrics (cost PMPM, readmission rate, risk
+score), and the rules (which codes mean "diabetes", who can see what). It's **just files**
+(Markdown + `.tql`) in a git repo.
 
-This starter gives you a **pre-built healthcare ontology** so you don't begin from a blank
-page:
-- A **data backbone** (members, coverage, claims, encounters, diagnoses, procedures, drugs).
-- **Governed metrics** (cost PMPM, 30-day readmission, disease prevalence, risk/RAF,
-  utilization per 1,000, medication adherence, a quality-measure template).
-- A **terminology layer** that turns raw medical codes (ICD-10, etc.) into meaningful groups
-  (diabetes, heart failure, chronic conditions, risk categories) — the hard part, done for you.
-- **Governance built in** (PHI handling, small-cell suppression, sensitive diagnoses).
+When you connect that repo to Ana, **Ana reads it and treats it as ground truth.** Ask
+"what's our 30-day readmission rate?" and instead of guessing, Ana uses the governed
+definition in the repo and writes the exact, consistent SQL every time.
 
-## 2. Why it matters for healthcare & life-sciences organizations
+## Why it matters for healthcare & life-sciences teams
 
-- **Codes are unusable raw.** There are ~70,000 ICD-10 diagnosis codes. "How many members
-  have diabetes?" isn't one code — it's a whole branch. The ontology encodes those groupings
-  (using the public AHRQ/CMS standards) so every answer is consistent and defensible.
-- **Everyone gets the same number.** "Readmission rate" or "PMPM" can be computed several
-  ways. The ontology pins one **governed** definition (and keeps alternates visible but
-  un-swappable), so Finance and Quality stop arguing about whose number is right.
-- **Risk = revenue.** The risk-adjustment (HCC/RAF) surface is wired to the official CMS
-  model — the metric that drives risk-adjusted payment for payers.
-- **Compliance is the default, not an afterthought.** PHI minimum-necessary, the CMS <11
-  small-cell suppression rule, and 42 CFR Part 2 sensitive-diagnosis gating are baked in.
-- **It's yours and portable.** Plain files in your git, no proprietary lock-in. Branch it,
-  diff it, review changes like code.
+- **Raw codes are unusable.** ~70,000 ICD-10 codes — "how many members have diabetes?" isn't
+  one code, it's a whole branch. This ontology pre-maps those into meaningful groups (using
+  the public AHRQ/CMS standards), so Ana answers consistently and defensibly.
+- **Everyone gets the same number.** Metrics like PMPM and readmission can be computed several
+  ways; the ontology pins one governed definition, so Finance and Quality stop disagreeing.
+- **Risk = revenue.** The risk-adjustment (HCC/RAF) logic is wired to the official CMS model.
+- **Compliance is the default.** PHI minimum-necessary, the CMS small-cell (<11) suppression
+  rule, and sensitive-diagnosis gating are built in.
 
-## 3. Set it up in your Ana environment
+---
 
-> **Prerequisites:** a TextQL/Ana workspace, a data warehouse connector (Redshift, BigQuery,
-> Snowflake, …), and a git host (GitHub/GitLab/enterprise). A BAA must be in place before any
-> PHI flows — see `ontology/notes/governance-phi.md`.
+## Setup: three connections, then you're in Ana
 
-**Step 3.1 — Put the ontology in your git.**
-```bash
-# create your own private repo from this starter (do NOT fork into a public space)
-git clone <this-starter-repo> my-org-ontology
-cd my-org-ontology
-git remote set-url origin <your-enterprise-git-url>
-git push -u origin main
-```
+### 1. Connect the ontology repo to Ana
 
-**Step 3.2 — Connect your warehouse to TextQL.** In TextQL, add the connector for the
-warehouse holding your claims/clinical data. Note its **connector ID** and SQL **dialect**.
+This is the key step. In TextQL, add a **Git connector** (via the API connector) and point it
+at this ontology repo. Because the ontology is git-backed, Ana now has the entire model —
+every metric definition, every note, every coding rule — as a reference it reads on demand.
 
-**Step 3.3 — Attach the ontology as Ana's context.** Point Ana at your repo (connect the git
-repo in the TextQL workspace, or attach the folder). Ana reads `NAVIGATION.md` first, then
-`config/org_context.md` for its operating rules.
+> 💡 You don't have to copy anything into Ana or maintain a second source of truth. Ana reads
+> the repo live; when the repo changes, Ana sees the change.
 
-**Step 3.4 — Load the public terminology crosswalks** (the groupers ICD-10 codes roll up to).
-These are free/public-domain (AHRQ CCSR, CMS-HCC, CMS GEMs):
+![Connect the ontology repo via the Git connector](screenshots/01-connect-git.png)
+> 📸 _Screenshot placeholder: the Git/API connector setup pointing at the ontology repo._
+
+### 2. Connect your data warehouse
+
+Add the connector for the warehouse that holds your claims/clinical data (Redshift, BigQuery,
+Snowflake, …). This is what Ana runs the governed SQL against.
+
+> ⚠️ A BAA must be in place before any PHI flows. Use your enterprise, BAA-covered warehouse —
+> see `ontology/notes/governance-phi.md`.
+
+![Add your data warehouse connector](screenshots/02-connect-warehouse.png)
+> 📸 _Screenshot placeholder: adding the warehouse connector in TextQL._
+
+### 3. (Optional) Bring in your own documents
+
+The ontology is the structured core. Your real-world context — SOPs, metric definitions, plan
+documents, policies — often lives in messy files. You have three easy ways to get them in front
+of Ana, all without preprocessing:
+
+- **Upload them directly** in the chat (PDF, Word, Excel, slides).
+- **Connect Google Drive** and point Ana at a folder.
+- **Connect SharePoint / OneDrive** for documents that live there.
+
+Ana reads these alongside the ontology and can fold what it learns into the model (see
+*Customizing*, below).
+
+![Upload docs or connect Google Drive / SharePoint](screenshots/03-add-documents.png)
+> 📸 _Screenshot placeholder: the document upload / Drive / SharePoint options._
+
+---
+
+## Use it: just ask Ana
+
+### 4. Let Ana validate the model against your data
+
+Before trusting numbers, have Ana check that the ontology's assumptions match your actual
+tables. **You don't write any SQL** — just ask:
+
+> **You:** *"Look at the ontology repo, then inspect my warehouse. Pull the information schema
+> for my claims tables and tell me where the ontology's expected table and column names don't
+> match what I actually have. Propose the exact changes to `ontology/schema.tql`."*
+
+Ana will discover your schema, diff it against the ontology, and hand you a precise list of
+fixes (table backings, column names). If anything's off, you just say *"make those changes and
+open a pull request"* — Ana edits the files and opens a reviewable PR in your repo.
+
+> There's a ready-made version of this check in `validation/dry-run-prompt.md` — you can paste
+> it straight into Ana.
+
+![Ana inspecting your schema and proposing fixes](screenshots/04-validate-schema.png)
+> 📸 _Screenshot placeholder: an Ana chat pulling the information schema and listing mismatches._
+
+### 5. Load the public terminology (one-time)
+
+The terminology layer (the ICD-10 → diabetes / heart-failure / risk-category mappings) is built
+from free public files (AHRQ CCSR, CMS-HCC, CMS GEMs). Loading them is the **one step that
+touches your warehouse directly** — your data engineer runs the included loader once:
+
 ```bash
 cd reference/terminology
-pip install requests pandas
-python load_terminology.py --download     # downloads + builds load-ready CSVs in ./_build
-# stage ./_build/*.csv to your object storage, then run ./_build/load.sql in your warehouse
+python load_terminology.py --download    # builds load-ready CSVs + a load.sql
 ```
-This creates a `terminology` schema your `.tql` joins to. (CCW chronic conditions ship as a
-PDF — see `reference/terminology/chronic_conditions.md` for the one manual step.)
 
-**Step 3.5 — (Optional) Hydrate certified value sets** for reportable quality measures. These
-are license-gated, so you fetch them with *your own free UMLS key* (we never bundle them):
-```bash
-export UMLS_API_KEY=...        # free at https://uts.nlm.nih.gov
-python fetch_vsac.py           # expands the OIDs in value-sets.json into your warehouse
-```
-See `reference/terminology/value-sets.md`. Skip this if you're only doing exploratory analysis.
+Then load the resulting files into a `terminology` schema (the script writes the `COPY`
+statements for you). Not sure who does this? Ask Ana: *"Walk me through loading these
+terminology files into my warehouse"* and it'll give you the exact steps for your platform.
 
-**Step 3.6 — Validate against your data (the dry run).** Have Ana:
-1. Pull the `information_schema` of your connector.
-2. Compare your real table/column names to `databases/<schema>/tables/*.md`.
-3. Fix any name mismatches in `ontology/schema.tql` (this is the one place table backings live).
-4. Run the 10 checks in `validation/golden-queries.md` and fill in the expected values.
-Follow the **First dry-run checklist** at the bottom of that file.
+![Terminology loaded; Ana confirms the groupers resolve](screenshots/05-load-terminology.png)
+> 📸 _Screenshot placeholder: confirmation that the terminology schema is loaded._
 
-## 4. Customize it for your organization
+### 6. Start asking questions
 
-Work through these in order; each is a small, reviewable pull request.
+Now just talk to Ana. It routes every question through the governed definitions:
 
-| # | Customize | Where | How |
-|---|---|---|---|
-| 1 | **Point at your tables** | `ontology/schema.tql` | Change the `let <name> = sql"..."` backings to your real schema/table names. Everything downstream follows. |
-| 2 | **Set dialect + rules** | `config/org_context.md` | Your warehouse dialect, connector IDs, "current date", and any org-specific SQL rules. |
-| 3 | **Confirm your metric definitions** | `ontology/notes/*.md` + `ontology/queries/*.tql` | Adopt or change the governed definition of each metric (e.g. cost = allowed vs charge). Record the decision in the note. |
-| 4 | **Add your value sets** | `ontology/filters/diagnosis.tql` + `value-sets.json` | Replace the starter "diabetes/CHF/…" definitions with your authoritative ones; add OIDs for measures you report. |
-| 5 | **Add your own metrics** | new `ontology/queries/<metric>.tql` + a note | Copy an existing surface as a template. |
-| 6 | **Tighten governance** | `ontology/notes/governance-phi.md` | Add your org's RBAC, residency, and any stricter suppression. Never loosen the defaults. |
-| 7 | **Document your sources** | `databases/<schema>/tables/*.md` | One short doc per table: columns, joins, gotchas. Ana reads these. |
+> *"What's our 30-day readmission rate for 2024?"*
+> *"How many members have diabetes? Break it down by state."*
+> *"Show me cost PMPM trend over the last 12 months."*
+> *"What's our average risk (RAF) score, and which conditions drive it most?"*
 
-### How you'll actually work day-to-day
-1. A question comes in → Ana reads `NAVIGATION.md` → uses the right governed surface → answers.
-2. A new document/policy arrives → make a **targeted edit** to the relevant note/surface →
-   open a **focused PR** → review → merge. The ontology evolves continuously; you never
-   "start over."
+Ana names which governed definition it used and shows the SQL — so every answer is traceable.
+
+![Asking governed questions in Ana](screenshots/06-ask-questions.png)
+> 📸 _Screenshot placeholder: an example question with Ana's answer + the SQL it used._
+
+---
+
+## Customize it for your company — by talking to Ana
+
+You shape the ontology the same way you use it: in conversation. A few examples —
+
+- **Adjust a metric definition:** *"We define cost using allowed amount, not charges. Update the
+  cost PMPM definition and open a PR."*
+- **Add a condition cohort:** *"Add a governed value set for COPD using our standard code list,"*
+  then attach or point Ana at the list.
+- **Fold in a new document:** upload a policy and say *"This is our updated readmission policy —
+  update the readmission note and surface to match, and open a PR."*
+- **Add your own metric:** *"Create a governed surface for ED visits per 1,000, like the existing
+  utilization metric."*
+
+In each case Ana makes a **targeted edit and opens a pull request** — a small, reviewable change
+in your git. Nothing changes silently; you approve it like any code change.
+
+![Ana editing the ontology and opening a pull request](screenshots/07-customize-pr.png)
+> 📸 _Screenshot placeholder: Ana proposing a change and the resulting PR._
+
+### How it runs day-to-day
+1. A question comes in → Ana reads the ontology → uses the right governed definition → answers.
+2. A new document or policy arrives → you tell Ana → it makes a targeted edit → opens a PR →
+   you review and merge. The ontology evolves continuously; you never start over.
 
 ---
 
 ## Where to look next
-- **`NAVIGATION.md`** — the routing table (start here, like Ana does).
+- **`NAVIGATION.md`** — the routing table Ana reads first.
 - **`ontology/notes/diagnosis-coding.md`** — how ICD-10 codes resolve to groupers (the core idea).
-- **`ontology/notes/governance-phi.md`** — the PHI rules you must keep.
-- **`STANDARDS.md`** — how this maps to Tuva / OMOP / FHIR if your data follows one of those.
-- **`LICENSING.md`** — what code sets are safe to share vs. fetch-with-your-own-license.
+- **`ontology/notes/governance-phi.md`** — the PHI rules that stay on by default.
+- **`LICENSING.md`** — what's safe to share vs. fetch with your own license.
 
-**Need help?** This starter is designed so a TextQL FDE can sit with your team for a half-day
-workshop and have you running governed questions against your own data by the end.
+**Want a hand?** A TextQL FDE can sit with your team for a half-day and have you running
+governed questions against your own data by the end.

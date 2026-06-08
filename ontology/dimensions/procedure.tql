@@ -1,18 +1,16 @@
 -- dimensions/procedure.tql — procedure grouping. Backing: relations/procedure.tql (`pr`).
--- Service-category rollups across HCPCS / CPT / ICD-10-PCS.
+-- VERIFIED: codes in normalized_code / normalized_code_type.
 
-let code      = sql"pr.code"
-let code_norm = sql"REPLACE(pr.code, '.', '')"
-let system    = sql"pr.code_type"          -- 'hcpcs' | 'cpt' | 'icd-10-pcs'
+let code      = sql"pr.normalized_code"
+let code_norm = sql"REPLACE(pr.normalized_code, '.', '')"
+let system    = sql"pr.normalized_code_type"     -- 'hcpcs' | 'cpt' | 'icd-10-pcs'
 
 -- HCPCS J-code = physician-administered drug (Part B drug spend).
-let is_jcode = sql"(pr.code_type = 'hcpcs' AND LEFT(pr.code,1) = 'J')"
+let is_jcode = sql"(pr.normalized_code_type = 'hcpcs' AND LEFT(pr.normalized_code,1) = 'J')"
 
--- Tuva "service category" grouper (claim-type/revenue/code based) — the cleanest
--- procedure rollup for utilization. Use Tuva's shipped service_category seed when present:
---   LEFT JOIN terminology.service_category sc ON sc.code = REPLACE(pr.code,'.','')
-let service_category = sql"sc.service_category"
+-- ICD-10-PCS section (char 1). HCPCS + ICD-10-PCS are public; CPT labels need the customer's
+-- licensed table (LICENSING.md).
+let icd10pcs_section = sql"LEFT(REPLACE(pr.normalized_code,'.',''), 1)"
 
--- ⚠️ CPT descriptions are AMA-licensed. Join to the customer's licensed CPT table for
---    labels; do not commit CPT lists here (LICENSING.md). ICD-10-PCS + HCPCS are public.
-let icd10pcs_section = sql"LEFT(REPLACE(pr.code,'.',''), 1)"   -- PCS char 1 = section (0=Med/Surg…)
+-- Note: medical_claim also carries service_category_1/2/3 + hcpcs_code + revenue_center_code,
+-- which are often the cleaner basis for service-category utilization than the procedure fact.

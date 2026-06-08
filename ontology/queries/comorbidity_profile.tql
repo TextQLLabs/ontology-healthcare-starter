@@ -1,43 +1,58 @@
--- comorbidity_profile.tql — risk burden via CMS-HCC / RAF. The payer money surface.
--- Per-member RAF from diagnosis-driven HCCs (+ optional roll to a population mean RAF).
--- Respects HCC hierarchies (most-severe-wins within a disease group). See notes/risk-adjustment-hcc.md.
--- Dialect: REDSHIFT (dev.tuva). Crosswalk: terminology.hcc_categories.
+-- comorbidity_profile.tql — risk burden via CMS-HCC / RAF (V28, PY2026). Payer money surface.
+-- VERIFIED columns 2026-06-08. Applies the CMS-HCC HIERARCHY (trumping) + SEGMENT coefficients.
+-- condition codes = normalized_code / normalized_code_type; no patient table (person CTE for state).
+-- Crosswalks via reference/terminology/load_terminology.py. See notes/risk-adjustment-hcc.md.
 
 params {
-  -- "member" = one row per member with RAF; "population" = mean RAF + HCC prevalence.
   level: Set<"member" | "population"> = ["population"]
-  -- Measurement-year diagnoses only (HCCs require a qualifying dx in the year).
+  segment: Set<"CNA" | "CND" | "CFA" | "CFD" | "CPA" | "CPD" | "INS"> = ["CNA"]
   year_start: String = "2018-01-01"
   year_end:   String = "2018-12-31"
   state: String?
 }
 
 let
-  state_filter = if state == null then sql"" else sql"AND p.state = ${state}"
+  state_filter = if state == null then sql"" else sql"AND pe.state = ${state}"
   member_select = matchSet level {
     "member"     -> sql"SELECT person_id, member_raf FROM member_raf ORDER BY member_raf DESC"
     "population" -> sql"SELECT AVG(member_raf) AS mean_raf, COUNT(*) AS members FROM member_raf"
   }
 
 in sql''
-  WITH member_hccs AS (
-    -- distinct HCCs per member from qualifying measurement-year diagnoses
-    SELECT DISTINCT c.person_id, hx.hcc, hx.raf_weight
+  WITH person AS (
+    SELECT person_id, MAX(fips_state_abbreviation) AS state
+    FROM tuva.eligibility GROUP BY person_id
+  ),
+  member_hccs AS (
+    -- distinct HCCs per member from qualifying measurement-year diagnoses (V28 map)
+    SELECT DISTINCT c.person_id, x.hcc
     FROM tuva.condition c
-    JOIN tuva.patient p ON p.person_id = c.person_id
-    JOIN terminology.hcc_categories hx ON hx.icd10cm_code = REPLACE(c.code,'.','')
-    WHERE c.code_type = 'icd-10-cm'
+    JOIN person pe ON pe.person_id = c.person_id
+    JOIN terminology.cmshcc_dx_hcc x ON x.icd10cm_code = REPLACE(c.normalized_code, '.', '')
+    WHERE c.normalized_code_type = 'icd-10-cm'
       AND c.recorded_date BETWEEN DATE ${year_start} AND DATE ${year_end}
       ${state_filter}
   ),
-  -- HCC hierarchy: keep only the highest-weight HCC within each member's disease group.
-  -- (Starter approximation = max weight per member per HCC; a full impl applies CMS
-  --  hierarchy rules from the model's HCC-to-HCC exclusion table — see the note.)
-  member_raf AS (
-    SELECT person_id, SUM(raf_weight) AS member_raf
-    FROM member_hccs
-    GROUP BY person_id
-  )
+  -- HIERARCHY (trumping): drop any HCC a more-severe present HCC excludes (e.g. HCC35 -> 36/37/38).
+  trumped AS (
+    SELECT mh.person_id, mh.hcc AS excluded_hcc
+    FROM member_hccs mh
+    JOIN terminology.cmshcc_hierarchy h ON h.excluded_hcc = mh.hcc
+    JOIN member_hccs sup ON sup.person_id = mh.person_id AND sup.hcc = h.superior_hcc
+  ),
+  surviving_hccs AS (
+    SELECT mh.person_id, mh.hcc
+    FROM member_hccs mh
+    LEFT JOIN trumped t ON t.person_id = mh.person_id AND t.excluded_hcc = mh.hcc
+    WHERE t.excluded_hcc IS NULL
+  ),
+  hcc_raf AS (
+    SELECT s.person_id, SUM(co.coeff::DECIMAL) AS hcc_raf
+    FROM surviving_hccs s
+    JOIN terminology.cmshcc_coefficients co ON co.segment = ${segment} AND co.hcc = s.hcc
+    GROUP BY s.person_id
+  ),
+  member_raf AS (SELECT person_id, hcc_raf AS member_raf FROM hcc_raf)
   ${member_select}
-  -- ⚠️ governance: suppress member-level output to cells >= 11; population view is safe.
+  -- governance: population view is safe; suppress member-level cells < 11 (governance-phi.md).
 ''

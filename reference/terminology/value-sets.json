@@ -1,0 +1,17 @@
+{
+  "_comment": "OID registry for VSAC-hosted certified value sets. We commit OIDs + version pins ONLY (license-safe); fetch_vsac.py hydrates the codes with the customer's UMLS API key. Verify each OID/version at https://vsac.nlm.nih.gov before relying on it — value sets are updated annually and some concepts (e.g. diabetes ICD-10-CM) have overlapping value sets.",
+  "value_sets": [
+    {
+      "name": "Diabetes (diagnosis)",
+      "oid": "2.16.840.1.113883.3.464.1003.103.12.1001",
+      "code_systems": ["ICD-10-CM", "SNOMED CT"],
+      "use": "diabetes cohort; eCQM-aligned. Maps to filters/diagnosis.tql value_set(\"diabetes\")."
+    },
+    {
+      "name": "HbA1c Laboratory Test",
+      "oid": "2.16.840.1.113883.3.464.1003.198.12.1013",
+      "code_systems": ["LOINC"],
+      "use": "HbA1c test numerator for the HEDIS-style measure (hedis_measure.tql)."
+    }
+  ]
+}

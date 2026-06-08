@@ -1,7 +1,10 @@
--- dimensions/patient.tql — member grouping attributes. Backing: relations/patient.tql (`p`).
--- Demographics + geography. Health-equity attributes are governed (governance-phi.md).
+-- dimensions/patient.tql — member grouping attributes.
+-- VERIFIED: no `patient` table; demographics come from eligibility via the person CTE
+-- (relations/person.tql). Alias `p` = that person CTE:
+--   person AS (SELECT person_id, MIN(birth_date) AS birth_date,
+--                     MAX(fips_state_abbreviation) AS state FROM tuva.eligibility GROUP BY person_id)
 
--- Age band from birth_date relative to the analysis date (Tuva demo: 2018-12-31).
+-- Age from birth_date relative to the analysis date (Tuva demo: 2018-12-31).
 let age = sql"DATEDIFF('year', p.birth_date, DATE '2018-12-31')"
 let age_band = sql"""
   CASE
@@ -13,9 +16,11 @@ let age_band = sql"""
   END
 """
 
-let sex   = sql"p.sex"
-let state = sql"p.state"                 -- 2-letter; geographic rollup
+let state = sql"p.state"                 -- fips_state_abbreviation, 2-letter
 
--- Health-equity dimensions — surface only in aggregate, per governance-phi.md.
-let race      = sql"p.race"
-let ethnicity = sql"p.ethnicity"
+-- ⚠️ NOT AVAILABLE in this dataset: sex/gender, race, ethnicity (no such columns on
+--    eligibility or any table). Health-equity breakdowns require an external demographic
+--    source. Do not invent these dimensions; mark them unavailable until a source is added.
+-- let sex = ...        (unavailable)
+-- let race = ...       (unavailable)
+-- let ethnicity = ...  (unavailable)

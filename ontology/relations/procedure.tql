@@ -1,16 +1,15 @@
 -- relations/procedure.tql — Procedure fact. Backing: schema.tql `procedure`.
--- One row per procedure. Drives service-category utilization, HEDIS numerators,
--- and (with HCPCS J-codes) physician-administered drug analysis.
+-- VERIFIED against live tuva.procedure (2026-06-08). Codes in normalized_code/_type.
 
 let source = sql"tuva.procedure"
 
--- Stable columns:
---   person_id        join key
---   encounter_id
---   code             procedure code (string)
---   code_type        'hcpcs' | 'cpt' | 'icd-10-pcs'
---                    ⚠️ CPT is AMA-licensed — resolve via the customer's licensed table,
---                       never bundle CPT lists here (see LICENSING.md).
---   procedure_date
+-- VERIFIED columns (alias `pr`):
+--   person_id, encounter_id, claim_id
+--   procedure_date                                          ✓ as assumed
+--   normalized_code        procedure code                   [was: code]
+--   normalized_code_type   'hcpcs' | 'cpt' | 'icd-10-pcs'   [was: code_type]
+--   source_code / source_code_type                          original coding
+--   modifier_1..5
+--   ⚠️ CPT is AMA-licensed — resolve via the customer's licensed table; never bundle CPT.
 
-let code_norm = sql"REPLACE(pr.code, '.', '')"
+let code_norm = sql"REPLACE(pr.normalized_code, '.', '')"

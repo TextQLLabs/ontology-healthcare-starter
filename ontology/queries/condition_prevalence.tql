@@ -1,61 +1,51 @@
--- condition_prevalence.tql — governed disease prevalence. THE terminology-layer payoff.
--- "How many members have <condition>" answered through a grouper, never guessed codes.
---
--- Numerator   = distinct members with a qualifying diagnosis (chosen grouper/value set).
--- Denominator = enrolled members (member-month grain → average members, or distinct
---               members with any eligibility in the window).
--- Dialect: REDSHIFT (dev.tuva). See dimensions/diagnosis.tql + filters/diagnosis.tql.
+-- condition_prevalence.tql — governed disease prevalence. VERIFIED columns 2026-06-08.
+-- "How many members have <condition>" via a grouper, never guessed codes.
+-- condition codes = normalized_code / normalized_code_type; no patient table (person CTE).
 
 params {
-  -- Which grouping to define the cohort by.
   grouper: Set<"value_set" | "ccsr" | "chronic" | "hcc" | "icd10_prefix"> = ["value_set"]
-  -- The concept within that grouper:
-  --   value_set: "diabetes"|"chf"|"copd"|"ckd"|"hypertension"|"depression"
-  --   ccsr: a CCSR category code (e.g. "END003"); chronic: CCW name (e.g. "Diabetes")
-  --   hcc: an HCC id (e.g. "HCC38"); icd10_prefix: a code prefix (e.g. "E11")
+  -- value_set: "diabetes"; ccsr: a category (e.g. "END003"); chronic: CCW name (e.g. "Diabetes");
+  -- hcc: an HCC id (e.g. "38"); icd10_prefix: a code prefix (e.g. "E11")
   concept: String = "diabetes"
-  -- Optional 2-letter state filter on the member. null = all.
   state: String?
-  -- Count only primary (principal) diagnoses? Default false = any-position.
   primary_only: Bool = false
 }
 
 let
-  -- resolve the cohort predicate from the grouper choice
   dx_filter = matchSet grouper {
-    "value_set"    -> sql"vs_match"   -- placeholder; the value_set lambda is inlined below
-    "ccsr"         -> sql"cx.ccsr_category = ${concept}"
+    "value_set"    -> sql"LEFT(REPLACE(c.normalized_code,'.',''),3) BETWEEN 'E08' AND 'E13'"  -- starter diabetes
+    "ccsr"         -> sql"cx.default_ccsr_ip = ${concept} OR cx.default_ccsr_op = ${concept}"
     "chronic"      -> sql"ccw.chronic_condition = ${concept}"
     "hcc"          -> sql"hx.hcc = ${concept}"
-    "icd10_prefix" -> sql"REPLACE(c.code,'.','') LIKE ${concept} || '%'"
+    "icd10_prefix" -> sql"REPLACE(c.normalized_code,'.','') LIKE ${concept} || '%'"
   }
-  -- value-set branch resolves via filters/diagnosis.tql value_set(concept); for non-value-set
-  -- groupers the corresponding crosswalk JOIN below supplies the columns.
-  primary_filter = if primary_only then sql"AND c.dx_rank = 1" else sql""
-  state_filter   = if state == null then sql"" else sql"AND p.state = ${state}"
+  primary_filter = if primary_only then sql"AND c.condition_rank = 1" else sql""
+  state_filter   = if state == null then sql"" else sql"AND pe.state = ${state}"
 
 in sql''
-  WITH cohort AS (
+  WITH person AS (
+    SELECT person_id, MAX(fips_state_abbreviation) AS state
+    FROM tuva.eligibility GROUP BY person_id
+  ),
+  cohort AS (
     SELECT DISTINCT c.person_id
     FROM tuva.condition c
-    JOIN tuva.patient p              ON p.person_id = c.person_id
-    LEFT JOIN terminology.ccsr_categories cx ON cx.icd10cm_code = REPLACE(c.code,'.','')
-    LEFT JOIN terminology.ccw_chronic     ccw ON ccw.icd10cm_code = REPLACE(c.code,'.','')
-    LEFT JOIN terminology.hcc_categories  hx  ON hx.icd10cm_code = REPLACE(c.code,'.','')
-    WHERE c.code_type = 'icd-10-cm'
+    JOIN person pe ON pe.person_id = c.person_id
+    LEFT JOIN terminology.ccsr_icd10cm   cx  ON cx.icd10cm_code = REPLACE(c.normalized_code,'.','')
+    LEFT JOIN terminology.ccw_chronic    ccw ON ccw.icd10cm_code = REPLACE(c.normalized_code,'.','')
+    LEFT JOIN terminology.cmshcc_dx_hcc  hx  ON hx.icd10cm_code = REPLACE(c.normalized_code,'.','')
+    WHERE c.normalized_code_type = 'icd-10-cm'
       AND (${dx_filter})
       ${primary_filter}
       ${state_filter}
   ),
   denom AS (
-    SELECT COUNT(DISTINCT e.person_id) AS members
-    FROM tuva.eligibility e
-    JOIN tuva.patient p ON p.person_id = e.person_id
+    SELECT COUNT(DISTINCT person_id) AS members FROM person pe
     WHERE 1=1 ${state_filter}
   )
-  SELECT (SELECT COUNT(*) FROM cohort)                                   AS members_with_condition,
-         d.members                                                       AS eligible_members,
-         (SELECT COUNT(*) FROM cohort)::DECIMAL / NULLIF(d.members, 0)    AS prevalence_rate
+  SELECT (SELECT COUNT(*) FROM cohort)                                AS members_with_condition,
+         d.members                                                    AS eligible_members,
+         (SELECT COUNT(*) FROM cohort)::DECIMAL / NULLIF(d.members, 0) AS prevalence_rate
   FROM denom d
-  -- ⚠️ governance: suppress any cell where members_with_condition < 11 (governance-phi.md).
+  -- governance: suppress any cell where members_with_condition < 11 (governance-phi.md).
 ''

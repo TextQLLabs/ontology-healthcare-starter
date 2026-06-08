@@ -1,31 +1,36 @@
-# Database: `tuva` (clinical + claims)
+# Database: `tuva` (clinical + claims) — VERIFIED 2026-06-08
 
-The default connector this starter is authored against. Tuva clinical+claims model on
-**Redshift** (`dev.tuva`). Join key **`person_id`** across all tables.
+Default connector. Real Tuva output model on **Redshift** (`dev.tuva`). Join key **`person_id`**.
+Schema confirmed live; the notes below reflect what's actually there (not assumptions).
 
-## Operating rules (data-owner)
-- **Treat the current date as 2018-12-31** (last date in the demo data).
-- **Pull `information_schema` first** on a new thread before writing SQL.
-- **No `SELECT *`** on big fact tables (`encounter`, `condition`, `procedure`).
+## Operating rules
+- **Current date = 2018-12-31** (last date in the data).
+- **Pull `information_schema` first**; no `SELECT *` on big fact tables.
 
-## Core tables
-| Table | Grain | Key columns |
-|---|---|---|
-| `patient` | 1 / person | person_id, birth_date, sex, race, ethnicity, state |
-| `eligibility` | enrollment span | person_id, enrollment_start_date, enrollment_end_date |
-| `member_months` | 1 / person / month | person_id, year_month |
-| `medical_claim` | claim line | person_id, claim_id, charge_amount, service_date |
-| `pharmacy_claim` | fill | person_id, ndc, rxcui, days_supply, fill_date, paid_amount |
-| `encounter` | visit | person_id, encounter_id, encounter_type, start/end, length_of_stay, charge_amount, drg_code |
-| `condition` | diagnosis | person_id, encounter_id, code, code_type, dx_rank, present_on_admission, recorded_date |
-| `procedure` | procedure | person_id, encounter_id, code, code_type, procedure_date |
-| `lab_result` | lab | person_id, loinc_code, result, result_date |
-| `observation`, `immunization`, `practitioner`, `location`, `appointment` | — | see per-table docs |
+## Tables present (20)
+`condition`, `eligibility`, `encounter`, `medical_claim`, `member_months`, `procedure`,
+`medication`, `lab_result`, `immunization`, `appointment`, `location`, `practitioner`,
+`person_id_crosswalk`, + `_stg_claims_*` staging tables.
 
-## Gotchas
-- Use `charge_amount` for cost — `paid_amount`/`allowed_amount` are sparse.
-- `encounter_type` ∈ {`acute inpatient`, `outpatient`, `emergency department`, `office visit`}.
-- Demo data is **ICD-10 only** (post-2015 cutover); GEMs path is dormant but wired.
+## ⚠️ Structural facts that shaped the ontology
+- **No `patient` table.** Person demographics come from **`eligibility`** (`birth_date`,
+  `fips_state_abbreviation`). Surfaces derive a person grain via a CTE
+  (`SELECT person_id, MIN(birth_date), MAX(fips_state_abbreviation) FROM eligibility GROUP BY person_id`).
+- **No `pharmacy_claim` table.** Pharmacy data is in **`medication`** (confirm its columns;
+  `rx_adherence_pdc.tql` is wired to it but pending column names).
+- **`sex` / `race` / `ethnicity` are NOT in the data** — health-equity dimensions are unavailable.
+- **Codes are in `normalized_code` / `normalized_code_type`** (Tuva normalizes source codes;
+  `source_code` keeps the original). Diagnoses are ~100% `icd-10-cm` (212,864 rows; 147 null).
 
-> Per-table detail lives in `tables/*.md`. Confirm exact column names on first discovery —
-> the starter's `.tql` is written to the Tuva model but column spellings vary by load.
+## Cost columns
+`medical_claim` and `encounter` both carry `charge_amount`, `paid_amount`, `allowed_amount`
+(+ `total_cost_amount` on `medical_claim`). Confirm which are well-populated (dry-run Q5) and
+set the cost numerator accordingly in `notes/cost-definition.md`.
+
+## Encounter types (28 distinct)
+Includes `acute inpatient`, `emergency department`, `office visit`, `urgent care`, `telehealth`,
+many outpatient subtypes, and `*-orphaned` / `orphaned claim`. The readmission + utilization
+surfaces key on `acute inpatient` / `emergency department` (both confirmed present). `encounter`
+also has `ed_flag` and `encounter_group` for cleaner rollups.
+
+Per-table detail: `tables/*.md`.

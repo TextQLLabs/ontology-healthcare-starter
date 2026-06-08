@@ -1,35 +1,41 @@
 -- schema.tql — central table backings for the entity spine.
 -- Rename a backing here once and every relation/dimension/query that imports it follows.
--- Dialect: REDSHIFT (dev.tuva). For BigQuery tuva_core_v2, drop the `tuva.` qualifier.
+-- Dialect: REDSHIFT (dev.tuva). VERIFIED against the live schema 2026-06-08 (see databases/tuva/).
 --
--- ⚠️ Confirm exact table/column names on first discovery (pull information_schema).
---    These backings follow the Tuva clinical+claims model (join key person_id).
+-- ⚠️ This is the REAL Tuva output model. Two structural facts confirmed on the live connector:
+--    * There is NO `patient` table — person demographics come from `eligibility`
+--      (birth_date, fips_state_abbreviation). sex/race/ethnicity are NOT present in this data.
+--    * There is NO `pharmacy_claim` table — pharmacy data is in `medication` (columns TBD).
+--    Codes live in `normalized_code` / `normalized_code_type` (not `code` / `code_type`).
 
 -- ── Members & coverage ───────────────────────────────────────────────────────
-let patient        = sql"tuva.patient"          -- 1 row / person.  PK person_id
-let eligibility    = sql"tuva.eligibility"       -- enrollment spans. person_id, start, end
+-- No patient table: derive a person grain from eligibility (read-only-safe CTE used in surfaces):
+--   (SELECT person_id, MIN(birth_date) AS birth_date,
+--           MAX(fips_state_abbreviation) AS state FROM tuva.eligibility GROUP BY person_id)
+let eligibility    = sql"tuva.eligibility"       -- enrollment spans + person demographics
 let member_months  = sql"tuva.member_months"     -- 1 row / person / enrolled month (PMPM denom)
 
 -- ── Claims ───────────────────────────────────────────────────────────────────
-let medical_claim  = sql"tuva.medical_claim"     -- medical claim lines.  charge_amount (use this; paid/allowed sparse)
-let pharmacy_claim = sql"tuva.pharmacy_claim"    -- pharmacy fills.  ndc, days_supply, quantity
+let medical_claim  = sql"tuva.medical_claim"     -- medical claim lines. charge/paid/allowed/total_cost all present
+let medication     = sql"tuva.medication"        -- pharmacy/medication (replaces pharmacy_claim; cols TBD)
 
 -- ── Clinical events ──────────────────────────────────────────────────────────
-let encounter      = sql"tuva.encounter"         -- visits. encounter_type, start/end, drg_code, length_of_stay
-let condition      = sql"tuva.condition"         -- diagnoses. code, code_type (icd-10-cm/icd-9-cm), dx rank, poa
-let procedure      = sql"tuva.procedure"         -- procedures. code, code_type (hcpcs/cpt/icd-10-pcs)
-let lab_result     = sql"tuva.lab_result"        -- labs. loinc-coded (structural; license-gated)
-let observation    = sql"tuva.observation"
+let encounter      = sql"tuva.encounter"         -- visits. encounter_type, start/end, drg_code, length_of_stay, ed_flag
+let condition      = sql"tuva.condition"         -- diagnoses. normalized_code, normalized_code_type, condition_rank
+let procedure      = sql"tuva.procedure"         -- procedures. normalized_code, normalized_code_type
+let lab_result     = sql"tuva.lab_result"        -- labs (loinc; license-gated)
 let immunization   = sql"tuva.immunization"
 
 -- ── Parties & places ─────────────────────────────────────────────────────────
-let practitioner   = sql"tuva.practitioner"      -- providers. npi, specialty / taxonomy
+let practitioner   = sql"tuva.practitioner"
 let location       = sql"tuva.location"
 
--- ── Reference / terminology (public groupers — see reference/terminology/) ─────
--- Loaded into a `terminology` schema; swap the qualifier to match the customer's load.
-let icd_chapter_map     = sql"terminology.icd10cm_chapters"   -- code range -> chapter/block
-let ccsr_xwalk          = sql"terminology.ccsr_categories"    -- icd-10-cm -> CCSR category
-let hcc_xwalk           = sql"terminology.hcc_categories"     -- icd-10-cm -> HCC + RAF weight
-let chronic_xwalk       = sql"terminology.ccw_chronic"        -- icd-10-cm -> CCW chronic flag
-let icd9_to_10_gem      = sql"terminology.icd9_to_icd10_gem"  -- ICD-9 -> ICD-10 (GEMs)
+-- ── Reference / terminology (PUBLIC groupers; loaded by reference/terminology/load_terminology.py) ──
+let icd_chapter_map    = sql"terminology.icd10cm_chapters"
+let ccsr_xwalk         = sql"terminology.ccsr_icd10cm"        -- icd10cm_code, default_ccsr_ip/op, ccsr_1..6
+let cmshcc_dx_hcc      = sql"terminology.cmshcc_dx_hcc"       -- icd10cm_code -> hcc
+let cmshcc_coeff       = sql"terminology.cmshcc_coefficients" -- name, coeff, segment, term, hcc
+let cmshcc_hierarchy   = sql"terminology.cmshcc_hierarchy"    -- superior_hcc, excluded_hcc (trumping)
+let chronic_xwalk      = sql"terminology.ccw_chronic"         -- icd10cm_code -> chronic_condition
+let icd9_to_10_gem     = sql"terminology.gem_icd9_icd10"      -- ICD-9 -> ICD-10 (dormant: data is ICD-10 only)
+let value_set_members  = sql"terminology.value_set_members"   -- VSAC, hydrated per-customer (fetch_vsac.py)

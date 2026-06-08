@@ -1,0 +1,26 @@
+-- relations/person.tql — the Member/Patient entity, DERIVED from eligibility.
+-- VERIFIED: the live schema has NO `patient` table. Person demographics live on `eligibility`,
+-- which is enrollment-span grain (many rows per person), so we collapse to one row per person.
+-- Connector is read-only (no CREATE VIEW), so surfaces inline this CTE rather than a view.
+
+-- Person-grain CTE to paste into surfaces that need demographics/state:
+--   person AS (
+--     SELECT person_id,
+--            MIN(birth_date)              AS birth_date,
+--            MAX(fips_state_abbreviation) AS state    -- 2-letter
+--     FROM tuva.eligibility
+--     GROUP BY person_id
+--   )
+
+let source = sql"tuva.eligibility"
+
+-- VERIFIED eligibility columns (alias `e`):
+--   person_id, member_id, subscriber_id
+--   birth_date, death_date                              -> age, mortality
+--   enrollment_start_date, enrollment_end_date          -> coverage spans / prorated member-months
+--   fips_state_abbreviation (2-letter), normalized_state_name, fips_state_code   -> geography
+--   payer, payer_type, plan, group_id, group_name
+--   dual_status_code, medicare_status_code, original_reason_entitlement_code     -> HCC segment hints
+--
+-- ⚠️ NOT AVAILABLE in this data: sex / gender, race, ethnicity. Any demographic dimension
+--    on those must be sourced elsewhere or marked unavailable (see dimensions/patient.tql).

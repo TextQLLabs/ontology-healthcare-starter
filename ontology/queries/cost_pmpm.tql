@@ -1,30 +1,35 @@
--- cost_pmpm.tql — cost per member per month (governed).
--- Numerator = medical claim cost; denominator = member months (authoritative enrollment grain).
--- Dialect: REDSHIFT (dev.tuva). See notes/cost-definition.md.
+-- cost_pmpm.tql — cost per member per month (governed). VERIFIED column names 2026-06-08.
+-- Numerator = medical claim cost; denominator = member months. See notes/cost-definition.md.
+-- No `patient` table: state comes from the eligibility-derived person CTE.
 --
--- DECISION: denominator = member months. Full-month (count member_months rows) vs
---   prorated-by-days (from eligibility spans) is the governed conflict. Default = prorated.
+-- DECISION: denominator basis = prorated (actuarial default) vs fullmonth.
+-- NUMERATOR: charge_amount is the safe default; paid_amount / allowed_amount / total_cost_amount
+--   also EXIST on medical_claim here — confirm their population (dry-run-prompt Q5) and switch
+--   to allowed_amount or total_cost_amount if well-populated (then update notes/cost-definition.md).
 
 params {
-  -- "prorated" = enrolled days / days-in-month (actuarial default); "fullmonth" = count rows.
   basis: Set<"prorated" | "fullmonth"> = ["prorated"]
   state: String?
 }
 
 let
-  state_filter = if state == null then sql"" else sql"AND p.state = ${state}"
+  state_filter = if state == null then sql"" else sql"AND pe.state = ${state}"
   member_months_expr = matchSet basis {
     "fullmonth" -> sql"(SELECT COUNT(*) FROM tuva.member_months)"
     "prorated"  -> sql"(SELECT SUM((DATEDIFF('day', e.enrollment_start_date, LEAST(e.enrollment_end_date, LAST_DAY(e.enrollment_start_date))) + 1) / 30.0) FROM tuva.eligibility e)"
   }
 
 in sql''
+  WITH person AS (
+    SELECT person_id, MAX(fips_state_abbreviation) AS state
+    FROM tuva.eligibility GROUP BY person_id
+  )
   SELECT
     SUM(mc.charge_amount)                                            AS total_charge,
     ${member_months_expr}                                            AS member_months,
     SUM(mc.charge_amount)::DECIMAL / NULLIF(${member_months_expr}, 0) AS cost_pmpm
   FROM tuva.medical_claim mc
-  JOIN tuva.patient p ON mc.person_id = p.person_id
+  JOIN person pe ON pe.person_id = mc.person_id
   WHERE 1=1
     ${state_filter}
 ''

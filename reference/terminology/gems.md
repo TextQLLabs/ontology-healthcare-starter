@@ -1,29 +1,36 @@
 # GEMs — ICD-9 ↔ ICD-10 General Equivalence Mappings
 
-**Source (free):** CMS General Equivalence Mappings (final 2018). Public.
-**Why:** Claims with `service_date < 2015-10-01` use **ICD-9-CM**; everything after uses
-**ICD-10-CM**. To analyze across the cutover (trends spanning 2015), translate ICD-9 → ICD-10
-before applying any ICD-10 grouper. Used in `dimensions/diagnosis.tql` ICD-9 handling.
+**Source (free, public domain):** CMS GEM archive —
+`https://www.cms.gov/medicare/coding-billing/icd-10-codes/icd-10-cm-icd-10-pcs-gem-archive`
+Diagnosis zip: `https://www.cms.gov/medicare/coding/icd10/downloads/2018-icd-10-cm-general-equivalence-mappings.zip`
+**Provenance:** **2018 is the final, frozen version** — GEMs were not updated after FY2018, by design.
+**Why:** Claims with `service_date < 2015-10-01` use **ICD-9-CM**; later use **ICD-10-CM**. To
+analyze across the cutover, translate before applying any ICD-10 grouper. Loaded by `load_terminology.py`.
 
-## Table: `terminology.icd9_to_icd10_gem`
-| column | type | notes |
-|---|---|---|
-| `icd9_code` | varchar | dot-stripped |
-| `icd10_code` | varchar | dot-stripped target |
-| `flags` | varchar | GEM approximate/combination/scenario/choice flags |
+## Table: `terminology.gem_icd9_icd10`
+From `2018_I9gem.txt` (space-delimited). Columns:
+| column | notes |
+|---|---|
+| `icd9_code` | dot-stripped source |
+| `icd10_code` | dot-stripped target (`NoDx` sentinel when no map) |
+| `flags` | 5 positional digits |
+| `flag_approximate` / `flag_nomap` / `flag_combination` / `flag_scenario` / `flag_choice` | split from `flags` |
 
-> ⚠️ GEMs are **not 1:1**. Many ICD-9 codes map to several ICD-10 codes (and vice versa),
-> and "approximate" flags mean the mapping is lossy. For trend analysis, prefer rolling up
-> both eras to a **stable grouper** (CCSR/CCW) rather than code-to-code. Document the
-> approach in `notes/diagnosis-coding.md`. The Tuva demo data is post-2015 (ICD-10 only),
-> so GEMs is dormant there but wired for customers with historical claims.
+The 5 flags: **approximate** (mapping is not exact), **no-map** (no valid target), **combination**
+(source needs multiple targets together), **scenario** (combination grouping), **choice list**
+(alternatives within a scenario).
+
+## ⚠️ Use carefully
+GEMs are **not 1:1** — many-to-many and lossy ("approximate"). For trend analysis spanning the
+cutover, **don't map code-to-code**; roll both eras up to a **stable grouper** (CCSR/CCW) and
+compare there. The Tuva demo data is post-2015 (ICD-10 only), so this is dormant there but wired
+for customers with historical claims. See `notes/diagnosis-coding.md`.
 
 ## Sample rows
 ```
-icd9_code,icd10_code,flags
-25000,E119,approximate
-4019,I10,exact
-42831,I5022,approximate
-49121,J449,approximate
-5859,N189,approximate
+icd9_code,icd10_code,flag_approximate
+25000,E119,1
+4019,I10,0
+49121,J449,1
+5859,N189,1
 ```

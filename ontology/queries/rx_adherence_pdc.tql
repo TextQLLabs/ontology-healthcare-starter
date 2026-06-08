@@ -40,7 +40,7 @@ in sql''
   )
   SELECT COUNT(*)                                                       AS members_measured,
          AVG(pdc)                                                       AS mean_pdc,
-         COUNT(*) FILTER (WHERE pdc >= 0.80)::DECIMAL / NULLIF(COUNT(*),0) AS pct_adherent
+         SUM(CASE WHEN pdc >= 0.80 THEN 1 ELSE 0 END)::DECIMAL / NULLIF(COUNT(*),0) AS pct_adherent
   FROM member_pdc
   -- governance: suppress if members_measured < 11.
 ''

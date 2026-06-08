@@ -11,10 +11,11 @@ params {
 let
   state_filter = if state == null then sql"" else sql"AND pe.state = ${state}"
   event_expr = matchSet metric {
-    "inpatient_admits" -> sql"COUNT(*) FILTER (WHERE e.encounter_type = 'acute inpatient')"
+    -- Redshift has no FILTER (WHERE ...) on aggregates — use SUM(CASE ...).
+    "inpatient_admits" -> sql"SUM(CASE WHEN e.encounter_type = 'acute inpatient' THEN 1 ELSE 0 END)"
     -- ed_visits: ed_flag = 1 is broader/cleaner than encounter_type alone; using encounter_type
     -- here for portability. Swap to (e.ed_flag = 1) on this connector if you want all ED settings.
-    "ed_visits"        -> sql"COUNT(*) FILTER (WHERE e.encounter_type = 'emergency department')"
+    "ed_visits"        -> sql"SUM(CASE WHEN e.encounter_type = 'emergency department' THEN 1 ELSE 0 END)"
     "bed_days"         -> sql"SUM(CASE WHEN e.encounter_type = 'acute inpatient' THEN e.length_of_stay ELSE 0 END)"
   }
   member_months = sql"(SELECT COUNT(*) FROM tuva.member_months)"

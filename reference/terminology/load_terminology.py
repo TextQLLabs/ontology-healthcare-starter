@@ -105,9 +105,10 @@ def build_cmshcc(out: str):
     v28col = next(c for c in raw.columns if "v28" in c.lower())
     dxmap = pd.DataFrame({
         "icd10cm_code": raw[dxcol].str.replace(".", "", regex=False).str.strip(),
-        "hcc": raw[v28col].str.strip(),
+        # normalize to a bare integer HCC ("HCC19"/"19" -> "19") so it joins to the
+        # coefficients (term HCC<n> -> n) and hierarchy (CC=<n>) tables. All three are bare ints.
+        "hcc": raw[v28col].str.extract(r"(\d+)")[0],
     }).dropna(subset=["hcc"])
-    dxmap = dxmap[dxmap["hcc"].astype(bool) & (dxmap["hcc"] != "")]
     dxmap["source_version"] = sm["version"]
     _write(dxmap, out, "cmshcc_dx_hcc.csv")
 

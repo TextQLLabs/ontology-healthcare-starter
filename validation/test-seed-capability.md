@@ -7,6 +7,13 @@ ontology should require *read-only* access — no CREATE, no load, no schema cha
 Run these four tests in Ana, best-first, against the Tuva (or customer) connector. Each says
 what it proves and how to read the result. Stop at the first one that works cleanly.
 
+> ## ✅ RESULT (2026-06-09): Test B passes — this is the chosen mechanism.
+> CSV attached to the thread (context library) → loaded into pandas → `tuva.condition` pulled
+> read-only → joined in-memory by ICD-10 alphabetic range. **All 212,864 ICD-10-CM rows mapped
+> to a chapter across 21 chapters, zero unclassified, zero warehouse writes.** Standardized in
+> `ontology/notes/terminology-join-pattern.md`. (Test A native-seed not needed; B covers any
+> crosswalk size including full CCSR/CMS-HCC.)
+
 ---
 
 ## Test A — Native seed / virtual table (the ideal)

@@ -20,8 +20,8 @@ pinned to the demo data (current date 2018-12-31). Re-run on any schema/crosswal
 | 3 | `readmission_rate` | `definition="cms"` | index 434 · readmits 53 · **rate 0.1221** | ✅ verified |
 | 4 | `readmission_rate` | `definition="all_cause"` | **= Q3 (0.1221)** until transfer exclusion lands | ✅ verified (= Q3 by design) |
 | 5 | `condition_prevalence` | `grouper="value_set"`, `concept="diabetes"` | 446 / 1,000 · **prevalence 0.4460** | ✅ verified |
-| 6 | `condition_prevalence` | `grouper="ccsr"`, `concept="END003"` | — | ⛔ blocked: no `terminology` schema |
-| 7 | `comorbidity_profile` | `level="population"`, CY2018 | — | ⛔ blocked: no CMS-HCC seeds |
+| 6 | `condition_prevalence` | `grouper="ccsr"`, `concept="END003"` | — | 🔓 unblocked via federated join — commit `ccsr_icd10cm.csv` to the repo, then run in Python |
+| 7 | `comorbidity_profile` | `level="population"`, CY2018 | — | 🔓 unblocked via federated join — commit the 3 `cmshcc_*.csv` to the repo, then run in Python |
 | 8 | `utilization_per_1000` | `metric="inpatient_admits"` | events 434 · member_months 31,184 · **167.01 / 1,000** | ✅ verified |
 | 9 | `rx_adherence_pdc` | `rxnorm_codes=[…]` | — | ▶ ready to run (columns confirmed; surface updated) |
 | 10 | `hedis_measure` | HbA1c, diabetics 18–75 | — | ▶ ready to run (columns confirmed; surface updated) |
@@ -43,17 +43,17 @@ pinned to the demo data (current date 2018-12-31). Re-run on any schema/crosswal
 - `lab_result`: `normalized_component_code` (LOINC), `result_datetime` (timestamp), `result` (VARCHAR).
 - `medical_claim`: `charge/paid/allowed/total_cost_amount` all present (confirm population for the cost default).
 
-## ⛔ Terminology-load blocker (Q6, Q7, and class-based Q9)
-The Redshift connector is **read-only for us** — we can't create the `terminology` schema, and a
-new database would have to be provisioned. Until there's a writable terminology store, the
-**grouper-dependent surfaces stay unavailable**: CCSR prevalence (Q6), CMS-HCC/RAF (Q7), and
-class-based PDC. Options, fastest first:
-1. **A writable schema on the same Redshift cluster** (even a side `terminology` DB) → cross-database
-   joins work; run `load_terminology.py` → `load.sql` there. *(Recommended.)*
-2. **Load the seeds into any warehouse you do control** and point those surfaces at it.
-3. **Stay seed-free for now:** the value-set path (Q5) already covers common conditions via inline
-   ICD-10 ranges — extend `filters/diagnosis.tql` for more conditions without any terminology tables.
-The seed-free surfaces (cost, readmission, prevalence-by-value-set, utilization) need none of this.
+## ✅ Terminology "blocker" — SOLVED (federated join, zero warehouse writes)
+The Redshift connector is read-only and we can't create a `terminology` schema — and we no
+longer need to. **Test B confirmed** (2026-06-09) Ana joins the repo crosswalk CSVs to the
+warehouse data **in its Python sandbox**, keeping the warehouse strictly read-only. See
+`ontology/notes/terminology-join-pattern.md`. To run Q6/Q7 this way:
+1. `python reference/terminology/load_terminology.py --download` (fetches CCSR/CMS-HCC public files).
+2. **Commit the resulting CSVs** into `reference/terminology/` (public domain — see `LICENSING.md`):
+   `ccsr_icd10cm.csv` for Q6; `cmshcc_dx_hcc.csv` + `cmshcc_coefficients.csv` + `cmshcc_hierarchy.csv` for Q7.
+3. Ask Ana to run the grouper surface — it loads the CSV + joins in Python.
+An in-warehouse table (`load.sql`) is now **optional** — only if the customer wants the crosswalk
+materialized for BI tools. The seed-free value-set path (Q5, 27 conditions) needs none of this.
 
 ## Remaining steps
 1. Re-run **Q1** (prorated, fixed) → pin.

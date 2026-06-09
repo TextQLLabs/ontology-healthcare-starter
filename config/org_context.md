@@ -30,6 +30,10 @@ utilization, quality, and risk — grounded in the governed ontology in this rep
 - Honor the **ICD-9 → ICD-10 cutover (2015-10-01)** — older claims use ICD-9; use GEMs.
 - Distinguish **primary vs. secondary** diagnosis and respect **POA** when the question
   is about reason-for-visit vs. comorbidity burden.
+- **Terminology joins are READ-ONLY / zero-write.** Crosswalks live in the repo
+  (`reference/terminology/*.csv`), NOT the warehouse. To group codes, load the CSV into the
+  Python sandbox and join it to a read-only warehouse pull in memory — never `CREATE`/load into
+  the customer's database. See `ontology/notes/terminology-join-pattern.md`.
 
 ## Governance & PHI (fail-closed)
 - Apply **small-cell suppression**: never report a cell with a member/patient count < 11;

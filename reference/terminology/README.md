@@ -5,11 +5,24 @@ schema. The `.tql` dimensions/filters/queries join to them. **Only free / public
 groupers are loaded here** — certified value sets are license-gated and fetched separately
 (`value-sets.md`). See `../../LICENSING.md`.
 
-## Automated loader (do this)
+## Two ways to use these crosswalks
+
+**Path 1 — Federated join in Ana (recommended; ZERO warehouse writes).** The crosswalk CSV lives
+in this repo; Ana loads it into its Python sandbox and joins it to a read-only warehouse pull
+in-memory. Nothing is written to the customer's database. This is the default — verified working
+(212,864 conditions classified, zero writes). See `../../ontology/notes/terminology-join-pattern.md`.
+To enable CCSR/CMS-HCC on this path, **commit their CSVs into this folder** (build them once with
+the loader below; they're public domain — see `../../LICENSING.md`).
+
+**Path 2 — Materialize in the warehouse (optional).** Only if the customer wants the crosswalk as
+a real table (e.g. for BI tools). Requires write access.
+
+## Build the crosswalk CSVs (loader)
 ```bash
 pip install requests pandas
-python load_terminology.py --download          # -> ./_build/*.csv + load.sql
-# stage ./_build/*.csv to object storage, run ./_build/load.sql in the warehouse
+python load_terminology.py --download          # -> ./_build/*.csv (+ load.sql for Path 2)
+# Path 1: commit ./_build/*.csv into reference/terminology/  (Ana federates the join)
+# Path 2: stage ./_build/*.csv to object storage, run ./_build/load.sql in the warehouse
 ```
 
 | Table (loader output) | Grouper | Source (free) | Version | Key columns |

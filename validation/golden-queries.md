@@ -20,14 +20,24 @@ pinned to the demo data (current date 2018-12-31). Re-run on any schema/crosswal
 | 3 | `readmission_rate` | `definition="cms"` | index 434 · readmits 53 · **rate 0.1221** | ✅ verified |
 | 4 | `readmission_rate` | `definition="all_cause"` | **= Q3 (0.1221)** until transfer exclusion lands | ✅ verified (= Q3 by design) |
 | 5 | `condition_prevalence` | `grouper="value_set"`, `concept="diabetes"` | 446 / 1,000 · **prevalence 0.4460** | ✅ verified |
-| 6 | `condition_prevalence` | `grouper="ccsr"`, `concept="END003"` | — | ▶ ready: `ccsr_icd10cm.csv` (75,725 rows) committed in repo → run via federated join |
-| 7 | `comorbidity_profile` | `level="population"`, CY2018 | — | ▶ ready: `cmshcc_dx_hcc`/`coefficients`/`hierarchy` CSVs committed in repo → run via federated join |
+| 6 | `condition_prevalence` | `grouper="ccsr"`, `concept="END003"` | default-CCSR **297 / 1,000 = 0.2970** (any-position 302 = 0.302) | ✅ verified (federated join) |
+| 7 | `comorbidity_profile` | `level="population"`, segment CNA, CY2018 | **mean RAF 0.680** (all 1,000 enrolled); 0.757 dx'd; 1.030 HCC-positive. 287 pairs trumped | ✅ verified (federated join) |
 | 8 | `utilization_per_1000` | `metric="inpatient_admits"` | events 434 · member_months 31,184 · **167.01 / 1,000** | ✅ verified |
 | 9 | `rx_adherence_pdc` | `rxnorm_codes=[…]` | — | ▶ ready to run (columns confirmed; surface updated) |
 | 10 | `hedis_measure` | HbA1c, diabetics 18–75 | — | ▶ ready to run (columns confirmed; surface updated) |
 
 > Cross-check ✓: Q8 inpatient `events` (434) equals Q3 `index_admissions` (434) — same population,
 > two surfaces agree.
+>
+> **Q5 vs Q6 are not contradictory** — they measure different scopes of "diabetes":
+> Q5 `value_set("diabetes")` = ALL diabetes (ICD-10 E08–E13) → **446 members (0.446)**;
+> Q6 CCSR `END003` = the diabetes-with-complication CCSR category → **297 members (0.297)**.
+> The value-set is the broad cohort; the CCSR category is a clinical subset. Confirm `END003`'s
+> exact label in `ccsr_icd10cm.csv` (description col) when reporting, and name the scope used.
+>
+> **Q7 caveats confirmed against `notes/risk-adjustment-hcc.md`:** the 0.680 is the **dx-driven HCC
+> portion only** (demographic/age-sex terms excluded — a documented hook); V28 weights applied to
+> 2018 (V24-era) claims is intentional for the demo; hierarchy trumping IS applied (287 pairs removed).
 
 ## Invariants (re-assert after the prorated fix)
 - `condition_prevalence.prevalence_rate` ∈ [0, 1] — 0.446 ✅
@@ -56,7 +66,7 @@ An in-warehouse table (`load.sql`) is now **optional** — only if the customer 
 materialized for BI tools. The seed-free value-set path (Q5, 27 conditions) needs none of this.
 
 ## Remaining steps
-1. Re-run **Q1** (prorated, fixed) → pin.
-2. Confirm cost-column population → set `cost` default in `cost_pmpm.tql` / `notes/cost-definition.md`.
-3. Run **Q9, Q10** (surfaces updated) → pin.
-4. Resolve the terminology store → run **Q6, Q7** → pin.
+**7 of 10 verified** (Q2–Q8). Q6/Q7 done via the federated join (terminology CSVs in repo). Left:
+1. Re-run **Q1** (prorated, fixed formula) → pin.
+2. Confirm cost-column population → set the `cost` default in `cost_pmpm.tql` / `notes/cost-definition.md`.
+3. Run **Q9, Q10** (surfaces updated; columns confirmed) → pin.

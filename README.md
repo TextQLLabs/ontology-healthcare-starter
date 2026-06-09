@@ -20,6 +20,11 @@ answered with consistent, governed SQL instead of guesswork.
 > (CPT, SNOMED, LOINC) are modeled **structurally**, and certified VSAC value sets are **fetched
 > with your own UMLS key**. See `LICENSING.md`.
 
+> 🔒 **No customer data.** Built entirely from publicly available standards (CMS / AHRQ / US Census).
+> It contains no customer data — and connecting it never uses your data to build or improve the
+> template. When connected it runs **read-only**, and each customer's adaptations live in their own
+> repo, never back in this template.
+
 ---
 
 ## The six layers

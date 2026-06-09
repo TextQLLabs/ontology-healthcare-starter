@@ -4,7 +4,7 @@
 -- Crosswalks via reference/terminology/load_terminology.py. See notes/risk-adjustment-hcc.md.
 
 params {
-  level: Set<"member" | "population"> = ["population"]
+  level: Set<"member" | "population" | "by_hcc"> = ["population"]
   segment: Set<"CNA" | "CND" | "CFA" | "CFD" | "CPA" | "CPD" | "INS"> = ["CNA"]
   year_start: String = "2018-01-01"
   year_end:   String = "2018-12-31"
@@ -16,6 +16,8 @@ let
   member_select = matchSet level {
     "member"     -> sql"SELECT person_id, member_raf FROM member_raf ORDER BY member_raf DESC"
     "population" -> sql"SELECT AVG(member_raf) AS mean_raf, COUNT(*) AS members FROM member_raf"
+    -- where the burden concentrates: members + total RAF contribution per HCC (members x weight)
+    "by_hcc"     -> sql"SELECT s.hcc, MAX(co.label) AS hcc_label, COUNT(DISTINCT s.person_id) AS members, COUNT(DISTINCT s.person_id) * MAX(co.coeff::DECIMAL) AS total_raf_contribution FROM surviving_hccs s JOIN terminology.cmshcc_coefficients co ON co.segment = ${segment} AND co.hcc = s.hcc GROUP BY s.hcc ORDER BY total_raf_contribution DESC"
   }
 
 in sql''

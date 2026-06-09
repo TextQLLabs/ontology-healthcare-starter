@@ -44,19 +44,13 @@ every metric definition, every note, every coding rule — as a reference it rea
 > 💡 You don't have to copy anything into Ana or maintain a second source of truth. Ana reads
 > the repo live; when the repo changes, Ana sees the change.
 
-![Connect the ontology repo via the Git connector](screenshots/01-connect-git.png)
-> 📸 _Screenshot placeholder: the Git/API connector setup pointing at the ontology repo._
-
 ### 2. Connect your data warehouse
 
 Add the connector for the warehouse that holds your claims/clinical data (Redshift, BigQuery,
-Snowflake, …). This is what Ana runs the governed SQL against.
+Snowflake, …). This is what Ana runs the governed SQL against. Read-only access is enough.
 
 > ⚠️ A BAA must be in place before any PHI flows. Use your enterprise, BAA-covered warehouse —
 > see `ontology/notes/governance-phi.md`.
-
-![Add your data warehouse connector](screenshots/02-connect-warehouse.png)
-> 📸 _Screenshot placeholder: adding the warehouse connector in TextQL._
 
 ### 3. (Optional) Bring in your own documents
 
@@ -70,9 +64,6 @@ of Ana, all without preprocessing:
 
 Ana reads these alongside the ontology and can fold what it learns into the model (see
 *Customizing*, below).
-
-![Upload docs or connect Google Drive / SharePoint](screenshots/03-add-documents.png)
-> 📸 _Screenshot placeholder: the document upload / Drive / SharePoint options._
 
 ---
 
@@ -94,9 +85,6 @@ open a pull request"* — Ana edits the files and opens a reviewable PR in your 
 > There's a ready-made version of this check in `validation/dry-run-prompt.md` — you can paste
 > it straight into Ana.
 
-![Ana inspecting your schema and proposing fixes](screenshots/04-validate-schema.png)
-> 📸 _Screenshot placeholder: an Ana chat pulling the information schema and listing mismatches._
-
 ### 5. Terminology — already included, nothing to load
 
 The terminology layer (the ICD-10 → diabetes / heart-failure / risk-category mappings, plus the
@@ -109,9 +97,6 @@ That means grouper questions (disease prevalence by CCSR category, risk/RAF scor
 once the repo is connected. You only ever need a warehouse load if you specifically want the
 crosswalks materialized for other BI tools — see `ontology/notes/terminology-join-pattern.md`.
 
-![Ana joining the terminology crosswalk in Python against your data](screenshots/05-terminology-join.png)
-> 📸 _Screenshot placeholder: Ana resolving a grouper (e.g. CCSR/HCC) via the in-Python join._
-
 ### 6. Start asking questions
 
 Now just talk to Ana. It routes every question through the governed definitions:
@@ -122,9 +107,6 @@ Now just talk to Ana. It routes every question through the governed definitions:
 > *"What's our average risk (RAF) score, and which conditions drive it most?"*
 
 Ana names which governed definition it used and shows the SQL — so every answer is traceable.
-
-![Asking governed questions in Ana](screenshots/06-ask-questions.png)
-> 📸 _Screenshot placeholder: an example question with Ana's answer + the SQL it used._
 
 ---
 
@@ -143,9 +125,6 @@ You shape the ontology the same way you use it: in conversation. A few examples 
 
 In each case Ana makes a **targeted edit and opens a pull request** — a small, reviewable change
 in your git. Nothing changes silently; you approve it like any code change.
-
-![Ana editing the ontology and opening a pull request](screenshots/07-customize-pr.png)
-> 📸 _Screenshot placeholder: Ana proposing a change and the resulting PR._
 
 ### How it runs day-to-day
 1. A question comes in → Ana reads the ontology → uses the right governed definition → answers.

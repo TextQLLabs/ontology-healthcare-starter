@@ -26,6 +26,15 @@ A higher RAF = higher expected cost = higher risk-adjusted payment. The payer-cr
   the starter computes the **dx-driven HCC portion** only. Note this when reporting.
 - Member-level RAF is PHI-adjacent — suppress small cells, aggregate by default.
 
+## Reporting depth
+- `level="by_hcc"` returns members + **total RAF contribution per HCC** (members × weight) —
+  use it to show where risk burden concentrates (e.g. HF and diabetes-with-complication punch
+  above their prevalence because their coefficients are higher).
+- **Demographic RAF terms are present in the coefficient file** (e.g. `CNA_F65_69`) but keyed on
+  **age × sex**. This dataset has age (`birth_date`) but **no `sex` column**, so the demographic
+  component can't be computed here — it stays a documented hook. On a connector that carries sex,
+  add an age/sex-band → `co.term` join and sum it into `member_raf` for the full RAF.
+
 ## Validation
 Pin population mean RAF for a known cohort/year; alert on drift after any model-version or
-crosswalk refresh.
+crosswalk refresh. (Verified: CY2018 demo mean RAF = 0.680, CNA, dx-portion.)

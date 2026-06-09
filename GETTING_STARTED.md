@@ -97,23 +97,20 @@ open a pull request"* — Ana edits the files and opens a reviewable PR in your 
 ![Ana inspecting your schema and proposing fixes](screenshots/04-validate-schema.png)
 > 📸 _Screenshot placeholder: an Ana chat pulling the information schema and listing mismatches._
 
-### 5. Load the public terminology (one-time)
+### 5. Terminology — already included, nothing to load
 
-The terminology layer (the ICD-10 → diabetes / heart-failure / risk-category mappings) is built
-from free public files (AHRQ CCSR, CMS-HCC, CMS GEMs). Loading them is the **one step that
-touches your warehouse directly** — your data engineer runs the included loader once:
+The terminology layer (the ICD-10 → diabetes / heart-failure / risk-category mappings, plus the
+CMS-HCC risk model and CCSR clinical categories) **ships inside this repo** as public-domain
+crosswalk files in `reference/terminology/`. When a question needs them, **Ana joins them in its
+Python sandbox against a read-only pull of your data** — so your warehouse stays untouched: no
+schema, no load, no writes.
 
-```bash
-cd reference/terminology
-python load_terminology.py --download    # builds load-ready CSVs + a load.sql
-```
+That means grouper questions (disease prevalence by CCSR category, risk/RAF scores) just work
+once the repo is connected. You only ever need a warehouse load if you specifically want the
+crosswalks materialized for other BI tools — see `ontology/notes/terminology-join-pattern.md`.
 
-Then load the resulting files into a `terminology` schema (the script writes the `COPY`
-statements for you). Not sure who does this? Ask Ana: *"Walk me through loading these
-terminology files into my warehouse"* and it'll give you the exact steps for your platform.
-
-![Terminology loaded; Ana confirms the groupers resolve](screenshots/05-load-terminology.png)
-> 📸 _Screenshot placeholder: confirmation that the terminology schema is loaded._
+![Ana joining the terminology crosswalk in Python against your data](screenshots/05-terminology-join.png)
+> 📸 _Screenshot placeholder: Ana resolving a grouper (e.g. CCSR/HCC) via the in-Python join._
 
 ### 6. Start asking questions
 
@@ -158,10 +155,12 @@ in your git. Nothing changes silently; you approve it like any code change.
 ---
 
 ## Where to look next
+- **`DEEP_DIVE.md`** — a full technical tour: every file, every metric, every acronym. Read this
+  if you want to *really* understand what's in here.
 - **`NAVIGATION.md`** — the routing table Ana reads first.
 - **`ontology/notes/diagnosis-coding.md`** — how ICD-10 codes resolve to groupers (the core idea).
 - **`ontology/notes/governance-phi.md`** — the PHI rules that stay on by default.
-- **`LICENSING.md`** — what's safe to share vs. fetch with your own license.
+- **`LICENSING.md`** — which code systems are bundled vs. fetched with your own license.
 
 **Want a hand?** A TextQL FDE can sit with your team for a half-day and have you running
 governed questions against your own data by the end.

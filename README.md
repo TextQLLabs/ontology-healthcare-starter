@@ -1,21 +1,24 @@
-# Healthcare & Life Sciences — Ontology Starter
+# Healthcare & Life Sciences Ontology
 
-A **general, account-agnostic TextQL ontology** for payers, providers, and life-sciences
-customers. Branch this once per customer (Cigna, the next payer, …) and adapt — don't rebuild
-from zero each time.
+Your starting point for a governed, AI-ready ontology over healthcare and life-sciences data —
+members, claims, encounters, diagnoses, procedures, drugs, cost, utilization, quality, and risk.
 
-> 🚀 **New here? Read [`GETTING_STARTED.md`](GETTING_STARTED.md)** — a step-by-step,
-> non-expert walkthrough: what this is, why it matters, how to set it up in your own Ana
-> environment, and how to customize it for your company.
+Connect it to Ana and your data warehouse, point it at your tables, and grow it from here.
 
-It is **just files** — Markdown + `.tql` in a git repo. Definitions, SQL templates, and
-business rationale live together, are diff-able, and render to **native warehouse SQL**.
-No proprietary lock-in.
+> 🚀 **New here? Read [`GETTING_STARTED.md`](GETTING_STARTED.md)** — a step-by-step walkthrough:
+> what this is, why it matters, how to set it up in your own Ana environment, and how to make it
+> yours. For a deep technical tour of everything inside, see [`DEEP_DIVE.md`](DEEP_DIVE.md).
 
-> ⚠️ **Redistributable scope.** Ships **only free / public-domain code systems** (ICD-10-CM/PCS,
-> ICD-9 + GEMs, HCPCS, NDC, RxNorm, MS-DRG/APC, and the public groupers CCSR / CMS-HCC / CCW
-> chronic). Licensed systems (CPT, SNOMED, LOINC) are modeled **structurally**; certified VSAC
-> value sets are **fetched with the customer's own UMLS key, never bundled**. See `LICENSING.md`.
+It is **just files** — Markdown + `.tql` in a git repo. Business definitions, SQL templates, and
+the reasoning behind them live together, are diff-able, and render to **native warehouse SQL**.
+When you connect the repo to Ana, Ana reads it and treats it as ground truth — so questions get
+answered with consistent, governed SQL instead of guesswork.
+
+> ⚠️ **Code-system scope.** Ships **free / public-domain** code systems and groupers
+> (ICD-10-CM/PCS, ICD-9 + GEMs, HCPCS, NDC, RxNorm, MS-DRG/APC, CCSR, CMS-HCC, CCW chronic) —
+> the full terminology layer is in the repo, so it's yours to keep and extend. Licensed systems
+> (CPT, SNOMED, LOINC) are modeled **structurally**, and certified VSAC value sets are **fetched
+> with your own UMLS key**. See `LICENSING.md`.
 
 ---
 
@@ -23,29 +26,33 @@ No proprietary lock-in.
 
 | Layer | Where | What |
 |---|---|---|
-| **1 — Entity spine** | `ontology/schema.tql`, `ontology/relations/` | Member, Provider, Coverage, Medical/Pharmacy Claim, Encounter, Diagnosis, Procedure, Drug (Tuva grain). |
+| **1 — Entity spine** | `ontology/schema.tql`, `ontology/relations/` | Member, Provider, Coverage, Medical/Pharmacy Claim, Encounter, Diagnosis, Procedure, Drug. |
 | **2 — Metrics** | `ontology/queries/` | Governed surfaces: PMPM, readmission, prevalence, comorbidity/RAF, utilization/1000, Rx adherence, HEDIS template. |
-| **3 — Terminology** | `ontology/dimensions/`, `ontology/filters/`, `reference/terminology/` | **The heart.** ICD-10 hierarchy + groupers (CCSR, CMS-HCC, CCW) as dimensions & filters, loaded by `load_terminology.py`. |
+| **3 — Terminology** | `ontology/dimensions/`, `ontology/filters/`, `reference/terminology/` | **The heart.** ICD-10 hierarchy + groupers (CCSR, CMS-HCC, CCW) as dimensions, filters & committed crosswalks. |
 | **4 — Governance & PHI** | `ontology/notes/governance-phi.md`, `config/org_context.md` | HIPAA minimum-necessary, <11 suppression, 42 CFR Part 2. |
 | **5 — Decision records** | `ontology/notes/` | Why each metric is defined the way it is; canonical grouper per question. |
-| **6 — Validation** | `validation/golden-queries.md` | Pinned known-correct values; drift alerts. |
+| **6 — Validation** | `validation/` | Golden queries with pinned, verified values; the dry-run + seed-test playbooks. |
 
-`STANDARDS.md` anchors the model to the industry CDMs it stands on (Tuva, OMOP, FHIR, X12).
+`STANDARDS.md` maps the model to the industry data models it aligns with (Tuva, OMOP, FHIR, X12).
 
 ---
 
-## Quick start (summary — full version in GETTING_STARTED.md)
+## Quick start (full version in `GETTING_STARTED.md`)
 
-1. **Read `NAVIGATION.md`** — the routing table agents read first.
-2. **Clone into your own private git**, point your warehouse connector + Ana at it.
-3. **Load terminology:** `cd reference/terminology && python load_terminology.py --download`
-   → stage `_build/*.csv` → run `_build/load.sql` (creates the `terminology` schema).
-4. **(Optional) Hydrate certified value sets:** `export UMLS_API_KEY=… && python fetch_vsac.py`.
-5. **Dry run:** point `ontology/schema.tql` backings at your real tables; run
-   `validation/golden-queries.md`.
+1. **Connect this repo to Ana** via the Git connector — Ana now knows the whole ontology.
+2. **Connect your data warehouse** (Redshift, BigQuery, Snowflake, …) — read-only is enough.
+3. **Ask Ana to validate** the model against your schema and propose fixes (it opens a PR).
+4. **Start asking questions** — Ana routes each through the governed definitions and shows its SQL.
+
+The terminology crosswalks are already in the repo, so the grouper logic (CCSR, HCC/RAF, chronic)
+works with **zero writes to your warehouse** — Ana joins them in its Python sandbox. See
+`ontology/notes/terminology-join-pattern.md`.
 
 ## Default connector / dialect
 
-Authored **Redshift-first** against the Tuva clinical+claims model (`dev.tuva`, join key
-`person_id`). Each `.tql` notes its BigQuery (`tuva_core_v2`) equivalent inline. Swap the table
-backings in `schema.tql` to retarget; the metric logic stays put.
+Authored **Redshift-first** against a Tuva-shaped clinical+claims model (join key `person_id`),
+with BigQuery equivalents noted inline in each `.tql`. Repoint the table backings in
+`ontology/schema.tql` to your tables; the metric logic stays put.
+
+> **Status:** validated end-to-end on live data — all 10 governed surfaces run, with golden
+> values pinned in `validation/golden-queries.md`.

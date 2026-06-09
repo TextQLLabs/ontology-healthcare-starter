@@ -3,7 +3,8 @@
 --
 -- ⚠️ HEDIS value sets are NCQA-licensed; use certified VSAC eCQM sets via fetch_vsac.py for
 --    reporting (value-sets.md). Codes below are ILLUSTRATIVE starters.
--- lab_result CONFIRMED columns: normalized_component_code (LOINC), result_datetime (timestamp),
+-- lab_result CONFIRMED columns (2026-06-09): LOINC lives in normalized_order_code
+--    (normalized_component_code is 100% NULL here), date in result_datetime (timestamp),
 --    result (VARCHAR), collection_datetime. No `patient` table -> person CTE for age.
 
 params {
@@ -30,10 +31,10 @@ in sql''
       AND DATEDIFF('year', p.birth_date, DATE ${measurement_year_end}) BETWEEN ${age_min} AND ${age_max}
   ),
   numer AS (
-    -- numerator: an HbA1c test. CONFIRMED: LOINC in normalized_component_code, date in result_datetime.
+    -- numerator: an HbA1c test. CONFIRMED: LOINC in normalized_order_code (component_code is NULL here).
     SELECT DISTINCT l.person_id
     FROM tuva.lab_result l
-    WHERE l.normalized_component_code IN ('4548-4','17856-6')          -- HbA1c LOINC
+    WHERE l.normalized_order_code IN ('4548-4','17856-6')              -- HbA1c LOINC
       AND CAST(l.result_datetime AS DATE) BETWEEN DATE ${measurement_year_start} AND DATE ${measurement_year_end}
   )
   SELECT (SELECT COUNT(*) FROM denom)                                                       AS eligible,

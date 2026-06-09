@@ -15,7 +15,7 @@ pinned to the demo data (current date 2018-12-31). Re-run on any schema/crosswal
 
 | # | Surface | Call (params) | Expected | Status |
 |---|---|---|---|---|
-| 1 | `cost_pmpm` | `basis="prorated"`, `cost="charge"` | **re-run** (was $174,824 under the buggy formula) | ⚠️ re-run after fix |
+| 1 | `cost_pmpm` | `basis="prorated"`, `cost="charge"` | member_months 31,188.2 · **PMPM $13,275.25** (now converges with fullmonth — fix confirmed) | ✅ verified (charge basis) |
 | 2 | `cost_pmpm` | `basis="fullmonth"`, `cost="charge"` | total $414,031,139.38 · member_months 31,184 · **PMPM $13,277.04** | ✅ verified (charge basis) |
 | 3 | `readmission_rate` | `definition="cms"` | index 434 · readmits 53 · **rate 0.1221** | ✅ verified |
 | 4 | `readmission_rate` | `definition="all_cause"` | **= Q3 (0.1221)** until transfer exclusion lands | ✅ verified (= Q3 by design) |
@@ -23,8 +23,8 @@ pinned to the demo data (current date 2018-12-31). Re-run on any schema/crosswal
 | 6 | `condition_prevalence` | `grouper="ccsr"`, `concept="END003"` | default-CCSR **297 / 1,000 = 0.2970** (any-position 302 = 0.302) | ✅ verified (federated join) |
 | 7 | `comorbidity_profile` | `level="population"`, segment CNA, CY2018 | **mean RAF 0.680** (all 1,000 enrolled); 0.757 dx'd; 1.030 HCC-positive. 287 pairs trumped | ✅ verified (federated join) |
 | 8 | `utilization_per_1000` | `metric="inpatient_admits"` | events 434 · member_months 31,184 · **167.01 / 1,000** | ✅ verified |
-| 9 | `rx_adherence_pdc` | `rxnorm_codes=[…]` | — | ▶ ready to run (columns confirmed; surface updated) |
-| 10 | `hedis_measure` | HbA1c, diabetics 18–75 | — | ▶ ready to run (columns confirmed; surface updated) |
+| 9 | `rx_adherence_pdc` | `rxnorm_codes=[…]` | 0 members — **`tuva.medication` is empty (0 rows)** in this dataset | ✅ logic/columns verified; awaits pharmacy data |
+| 10 | `hedis_measure` | HbA1c, diabetics 18–75 | eligible 183 · met 80 · **rate 0.437** (after LOINC column fix) | ✅ verified |
 
 > Cross-check ✓: Q8 inpatient `events` (434) equals Q3 `index_admissions` (434) — same population,
 > two surfaces agree.
@@ -50,7 +50,8 @@ pinned to the demo data (current date 2018-12-31). Re-run on any schema/crosswal
 
 ## Confirmed column mappings (from the run)
 - `medication`: `dispensing_date` (date), `days_supply` (**VARCHAR → CAST**), `rxnorm_code` (no rxcui/ndc).
-- `lab_result`: `normalized_component_code` (LOINC), `result_datetime` (timestamp), `result` (VARCHAR).
+- `lab_result`: LOINC in **`normalized_order_code`** (⚠️ `normalized_component_code` is 100% NULL here), `result_datetime` (timestamp), `result` (VARCHAR).
+- `medication`: **empty (0 rows)** in this demo dataset — Rx surface verified but unexercised.
 - `medical_claim`: `charge/paid/allowed/total_cost_amount` all present (confirm population for the cost default).
 
 ## ✅ Terminology "blocker" — SOLVED (federated join, zero warehouse writes)
@@ -66,7 +67,9 @@ An in-warehouse table (`load.sql`) is now **optional** — only if the customer 
 materialized for BI tools. The seed-free value-set path (Q5, 27 conditions) needs none of this.
 
 ## Remaining steps
-**7 of 10 verified** (Q2–Q8). Q6/Q7 done via the federated join (terminology CSVs in repo). Left:
-1. Re-run **Q1** (prorated, fixed formula) → pin.
-2. Confirm cost-column population → set the `cost` default in `cost_pmpm.tql` / `notes/cost-definition.md`.
-3. Run **Q9, Q10** (surfaces updated; columns confirmed) → pin.
+**All 10 surfaces verified** end-to-end on live data, zero warehouse writes. (Q9 logic/columns
+confirmed but unexercised — `tuva.medication` is empty; it'll run once pharmacy data lands.)
+Optional polish:
+1. Confirm cost-column population (`charge`/`paid`/`allowed`/`total_cost`) → set the `cost` default
+   in `cost_pmpm.tql` / `notes/cost-definition.md` (charges are inflated at ~$13.3k PMPM).
+2. Add demographic RAF terms + per-HCC breakdown to `comorbidity_profile` (next surfaces).

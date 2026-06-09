@@ -1,9 +1,9 @@
-# Code-System Licensing — what's safe to ship
+# Code-System Licensing — what's bundled vs. fetched
 
-This starter is meant to be **branched across customers and shared**. That is only safe if we
-are careful about which standardized vocabularies we **bundle code lists for** vs. only **model
-structurally** vs. **fetch with the customer's own license**. "Model structurally" = the
-relation/dimension/column and joins exist, but no proprietary code list is committed.
+Healthcare code systems carry different licenses, so this ontology is deliberate about which
+standardized vocabularies it **bundles code lists for** vs. only **models structurally** vs.
+**fetches with your own license**. "Model structurally" = the relation/dimension/column and joins
+exist, but no proprietary code list is committed.
 
 | Code system | Domain | License | In this starter |
 |---|---|---|---|

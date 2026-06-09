@@ -76,7 +76,8 @@ def build_ccsr(out: str):
     df = pd.read_csv(io.BytesIO(zf.read(_find(zf, s["member"]))), dtype=str)
     strip = lambda c: c.str.strip().str.strip("'").str.strip() if c.dtype == object else c
     df = df.apply(strip)
-    col = {c.lower().strip(): c for c in df.columns}
+    # CCSR wraps both header cells AND code values in single quotes — strip quotes from names too.
+    col = {c.lower().strip().strip("'").strip(): c for c in df.columns}
     res = pd.DataFrame({
         "icd10cm_code": df[col["icd-10-cm code"]].str.replace(".", "", regex=False),
         "description": df[col["icd-10-cm code description"]],
@@ -99,7 +100,7 @@ def build_cmshcc(out: str):
     sm = SOURCES["cmshcc_map"]
     zf = fetch_zip(sm["url"])
     raw = pd.read_csv(io.BytesIO(zf.read(_find(zf, sm["member"]))), dtype=str,
-                      skiprows=3, engine="python")  # skip title/legend rows
+                      skiprows=3, engine="python", encoding="latin-1")  # skip title/legend rows
     raw.columns = [c.strip() for c in raw.columns]
     dxcol = next(c for c in raw.columns if "diagnosis" in c.lower() and "code" in c.lower())
     v28col = next(c for c in raw.columns if "v28" in c.lower())
@@ -118,7 +119,7 @@ def build_cmshcc(out: str):
     inner = next((n for n in zf2.namelist() if n.lower().endswith(".zip") and "v28" in n.lower()), None)
     pkg = zipfile.ZipFile(io.BytesIO(zf2.read(inner))) if inner else zf2
 
-    coeff = pd.read_csv(io.BytesIO(pkg.read(_find(pkg, ss["coeff_member"]))), dtype=str)
+    coeff = pd.read_csv(io.BytesIO(pkg.read(_find(pkg, ss["coeff_member"]))), dtype=str, encoding="latin-1")
     coeff.columns = [c.strip().lower() for c in coeff.columns]   # name, coeff, label
     parts = coeff["name"].str.extract(r"^(?P<segment>[A-Z]+)_(?P<term>.+)$")
     coeff["segment"] = parts["segment"]

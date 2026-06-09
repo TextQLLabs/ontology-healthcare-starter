@@ -20,8 +20,8 @@ pinned to the demo data (current date 2018-12-31). Re-run on any schema/crosswal
 | 3 | `readmission_rate` | `definition="cms"` | index 434 · readmits 53 · **rate 0.1221** | ✅ verified |
 | 4 | `readmission_rate` | `definition="all_cause"` | **= Q3 (0.1221)** until transfer exclusion lands | ✅ verified (= Q3 by design) |
 | 5 | `condition_prevalence` | `grouper="value_set"`, `concept="diabetes"` | 446 / 1,000 · **prevalence 0.4460** | ✅ verified |
-| 6 | `condition_prevalence` | `grouper="ccsr"`, `concept="END003"` | — | 🔓 unblocked via federated join — commit `ccsr_icd10cm.csv` to the repo, then run in Python |
-| 7 | `comorbidity_profile` | `level="population"`, CY2018 | — | 🔓 unblocked via federated join — commit the 3 `cmshcc_*.csv` to the repo, then run in Python |
+| 6 | `condition_prevalence` | `grouper="ccsr"`, `concept="END003"` | — | ▶ ready: `ccsr_icd10cm.csv` (75,725 rows) committed in repo → run via federated join |
+| 7 | `comorbidity_profile` | `level="population"`, CY2018 | — | ▶ ready: `cmshcc_dx_hcc`/`coefficients`/`hierarchy` CSVs committed in repo → run via federated join |
 | 8 | `utilization_per_1000` | `metric="inpatient_admits"` | events 434 · member_months 31,184 · **167.01 / 1,000** | ✅ verified |
 | 9 | `rx_adherence_pdc` | `rxnorm_codes=[…]` | — | ▶ ready to run (columns confirmed; surface updated) |
 | 10 | `hedis_measure` | HbA1c, diabetics 18–75 | — | ▶ ready to run (columns confirmed; surface updated) |

@@ -4,3 +4,5 @@
 credentials*
 *.secret
 licensed-codesets/
+# loader scratch dir (the built CSVs are committed up one level in reference/terminology/)
+reference/terminology/_build/

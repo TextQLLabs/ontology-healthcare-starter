@@ -1,7 +1,8 @@
 -- utilization_per_1000.tql — utilization per 1,000 members (annualized), governed.
--- VERIFIED columns 2026-06-08. events / member-months * 12000. No patient table (person CTE).
--- encounter_type values confirmed: 'acute inpatient' and 'emergency department' both present.
--- (Live data also has a cleaner ed_flag and an encounter_group rollup — see note below.)
+-- VERIFIED columns 2026-06-08. events / member-months * 12000.
+-- Table backings resolve via ontology/schema.tql (${encounter}, ${member_months}, ${person_grain}).
+-- ⚠️ encounter_type values ('acute inpatient', 'emergency department') are DATASET-SPECIFIC —
+--    confirm on discovery (dry-run Q3). Live data also has ed_flag and encounter_group rollups.
 
 params {
   metric: Set<"inpatient_admits" | "ed_visits" | "bed_days"> = ["inpatient_admits"]
@@ -18,19 +19,15 @@ let
     "ed_visits"        -> sql"SUM(CASE WHEN e.encounter_type = 'emergency department' THEN 1 ELSE 0 END)"
     "bed_days"         -> sql"SUM(CASE WHEN e.encounter_type = 'acute inpatient' THEN e.length_of_stay ELSE 0 END)"
   }
-  member_months = sql"(SELECT COUNT(*) FROM tuva.member_months)"
+  member_months_expr = sql"(SELECT COUNT(*) FROM ${member_months})"
 
 in sql''
-  WITH person AS (
-    SELECT person_id, MAX(fips_state_abbreviation) AS state
-    FROM tuva.eligibility GROUP BY person_id
-  )
   SELECT
     ${event_expr}                                          AS events,
-    ${member_months}                                       AS member_months,
-    (${event_expr})::DECIMAL / NULLIF(${member_months},0) * 12000 AS per_1000_annualized
-  FROM tuva.encounter e
-  JOIN person pe ON pe.person_id = e.person_id
+    ${member_months_expr}                                  AS member_months,
+    (${event_expr})::DECIMAL / NULLIF(${member_months_expr},0) * 12000 AS per_1000_annualized
+  FROM ${encounter} e
+  JOIN ${person_grain} pe ON pe.person_id = e.person_id
   WHERE 1=1
     ${state_filter}
 ''

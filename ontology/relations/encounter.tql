@@ -1,7 +1,7 @@
 -- relations/encounter.tql — the Visit fact. Backing: schema.tql `encounter`.
 -- One row per encounter. Drives utilization, readmission, length-of-stay, ED analysis.
 
-let source = sql"tuva.encounter"
+let source = sql"${encounter}"
 
 -- Stable columns:
 --   person_id              join key
@@ -13,6 +13,7 @@ let source = sql"tuva.encounter"
 --   drg_code               MS-DRG for inpatient (payment grouper)
 
 -- Canonical setting flags (used across utilization + readmission surfaces).
+-- ⚠️ The literals are DATASET-SPECIFIC — confirm with dry-run Q3 before trusting.
 let is_inpatient = sql"e.encounter_type = 'acute inpatient'"
 let is_ed        = sql"e.encounter_type = 'emergency department'"
 let is_outpatient = sql"e.encounter_type IN ('outpatient', 'office visit')"

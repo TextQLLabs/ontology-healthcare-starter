@@ -1,15 +1,16 @@
 -- rx_adherence_pdc.tql — medication adherence (PDC), governed. VERIFIED columns 2026-06-08.
+-- Table backings resolve via ontology/schema.tql (${medication}).
 --
--- Source = tuva.medication (there is NO pharmacy_claim table). CONFIRMED columns:
+-- Source = the pharmacy fact (in the reference dataset, `medication` — there is NO
+-- pharmacy_claim table there). CONFIRMED reference-dataset columns:
 --   person_id, dispensing_date (date), days_supply (VARCHAR -> CAST), rxnorm_code (RxNorm; no rxcui/ndc).
 --
 -- PDC = days covered by fills in the window / days in the window, per member, for a drug set.
 -- Adherent at PDC >= 0.80 (Star/HEDIS threshold). Starter approximates with capped sum of
 -- days_supply; certified PDC builds a per-day coverage calendar.
 --
--- DRUG SELECTION: this connector has no RxNorm->class crosswalk loaded, so the seed-free path
--- is to pass an explicit list of RxNorm codes (`rxnorm_codes`). If you later load
--- terminology.rxnorm_atc, you can switch to a class name instead.
+-- DRUG SELECTION: the seed-free path is an explicit list of RxNorm codes (`rxnorm_codes`).
+-- If you later load a class crosswalk (e.g. RxNorm ATC), switch to a class name instead.
 
 params {
   -- Explicit RxNorm codes defining the drug set (seed-free). Example below = a few antidiabetics.
@@ -27,7 +28,7 @@ in sql''
            -- days_supply is VARCHAR in this schema -> cast; cap the last fill at the window end.
            LEAST(CAST(m.days_supply AS INTEGER),
                  DATEDIFF('day', m.dispensing_date, DATE ${window_end}) + 1) AS covered_days
-    FROM tuva.medication m
+    FROM ${medication} m
     WHERE m.dispensing_date BETWEEN DATE ${window_start} AND DATE ${window_end}
       AND m.rxnorm_code IN (${rxnorm_codes})
   ),
@@ -40,5 +41,5 @@ in sql''
          AVG(pdc)                                                       AS mean_pdc,
          SUM(CASE WHEN pdc >= 0.80 THEN 1 ELSE 0 END)::DECIMAL / NULLIF(COUNT(*),0) AS pct_adherent
   FROM member_pdc
-  -- governance: suppress if members_measured < 11.
+  -- governance: suppress if members_measured < min_cell_size (governance-phi.md).
 ''

@@ -7,7 +7,8 @@ Connect it to Ana and your data warehouse, point it at your tables, and grow it 
 
 > 🚀 **New here? Read [`GETTING_STARTED.md`](GETTING_STARTED.md)** — a step-by-step walkthrough:
 > what this is, why it matters, how to set it up in your own Ana environment, and how to make it
-> yours. For a deep technical tour of everything inside, see [`DEEP_DIVE.md`](DEEP_DIVE.md).
+> yours. **Pointing it at your own warehouse? [`MIGRATION.md`](MIGRATION.md)** is the 8-step
+> re-point checklist. For a deep technical tour, see [`DEEP_DIVE.md`](DEEP_DIVE.md).
 
 It is **just files** — Markdown + `.tql` in a git repo. Business definitions, SQL templates, and
 the reasoning behind them live together, are diff-able, and render to **native warehouse SQL**.
@@ -35,8 +36,8 @@ answered with consistent, governed SQL instead of guesswork.
 | **2 — Metrics** | `ontology/queries/` | Governed surfaces: PMPM, readmission, prevalence, comorbidity/RAF, utilization/1000, Rx adherence, HEDIS template. |
 | **3 — Terminology** | `ontology/dimensions/`, `ontology/filters/`, `reference/terminology/` | **The heart.** ICD-10 hierarchy + groupers (CCSR, CMS-HCC, CCW) as dimensions, filters & committed crosswalks. |
 | **4 — Governance & PHI** | `ontology/notes/governance-phi.md`, `config/org_context.md` | HIPAA minimum-necessary, <11 suppression, 42 CFR Part 2. |
-| **5 — Decision records** | `ontology/notes/` | Why each metric is defined the way it is; canonical grouper per question. |
-| **6 — Validation** | `validation/` | Golden queries with pinned, verified values; the dry-run + seed-test playbooks. |
+| **5 — Decision records** | `ontology/notes/` | Why each metric is defined the way it is; canonical grouper per question; glossary, claim-grain + join-verification guides. |
+| **6 — Validation** | `validation/` | `validate_tql.py` (every surface checked against live `information_schema` + compiled), golden queries with pinned values, the dry-run playbook. |
 
 `STANDARDS.md` maps the model to the industry data models it aligns with (Tuva, OMOP, FHIR, X12).
 
@@ -46,7 +47,8 @@ answered with consistent, governed SQL instead of guesswork.
 
 1. **Connect this repo to Ana** via the Git connector — Ana now knows the whole ontology.
 2. **Connect your data warehouse** (Redshift, BigQuery, Snowflake, …) — read-only is enough.
-3. **Ask Ana to validate** the model against your schema and propose fixes (it opens a PR).
+3. **Validate before you trust** — run the dry-run prompt + `validation/validate_tql.py`
+   against your schema, fix what they find (usually just `ontology/schema.tql`). See `MIGRATION.md`.
 4. **Start asking questions** — Ana routes each through the governed definitions and shows its SQL.
 
 The terminology crosswalks are already in the repo, so the grouper logic (CCSR, HCC/RAF, chronic)
@@ -56,8 +58,10 @@ works with **zero writes to your warehouse** — Ana joins them in its Python sa
 ## Default connector / dialect
 
 Authored **Redshift-first** against a Tuva-shaped clinical+claims model (join key `person_id`),
-with BigQuery equivalents noted inline in each `.tql`. Repoint the table backings in
-`ontology/schema.tql` to your tables; the metric logic stays put.
+with BigQuery equivalents noted inline in each `.tql`. The semantic layer (metrics, routing,
+terminology) is fully separated from the physical mapping: **every physical table name lives in
+`ontology/schema.tql`** and surfaces reference logical `${name}` backings — so re-pointing to
+your warehouse is one file plus the `MIGRATION.md` checklist, not sixteen edits.
 
 > **Status:** validated end-to-end on live data — all 10 governed surfaces run, with golden
 > values pinned in `validation/golden-queries.md`.

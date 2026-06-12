@@ -1,10 +1,11 @@
 -- dimensions/diagnosis.tql — the ICD-10 terminology layer. THE centerpiece.
--- VERIFIED column names against live tuva.condition (2026-06-08): codes are in
+-- VERIFIED column names against the live reference dataset (2026-06-08): codes are in
 -- normalized_code / normalized_code_type; rank = condition_rank; POA = present_on_admit_code.
 --
 -- ~70K ICD-10-CM codes are useless raw. This encodes HIERARCHY (rollup) + GROUPERS (CCSR/HCC/
 -- CCW) so Ana resolves "diabetes prevalence" deterministically. Canonical grouper per question:
--- notes/diagnosis-coding.md. Backings: relations/condition.tql (`c`) + terminology (schema.tql).
+-- notes/diagnosis-coding.md. Backings: relations/condition.tql (`c`) + terminology xwalks
+-- (${icd_chapter_map}, ${ccsr_xwalk}, ${cmshcc_dx_hcc}, ${chronic_xwalk} — schema.tql).
 --
 --   E11.9 -> E11 (category, 3-char) -> E08–E13 (block) -> Chapter 4 (E00–E89)
 
@@ -15,22 +16,22 @@ let code_system = sql"c.normalized_code_type"             -- 'icd-10-cm'
 -- Level 1: 3-char category (pure string op, no join)
 let icd10_category = sql"LEFT(REPLACE(c.normalized_code, '.', ''), 3)"
 
--- Level 2: chapter & block — JOIN terminology.icd10cm_chapters ch
+-- Level 2: chapter & block — JOIN ${icd_chapter_map} ch
 --   ON LEFT(REPLACE(c.normalized_code,'.',''),3) BETWEEN ch.range_start AND ch.range_end
 let icd10_chapter = sql"ch.chapter_name"
 let icd10_block   = sql"ch.block_name"
 
--- Grouper 1: CCSR (AHRQ v2026.1) — DEFAULT. JOIN terminology.ccsr_icd10cm cx
+-- Grouper 1: CCSR (AHRQ v2026.1) — DEFAULT. JOIN ${ccsr_xwalk} cx
 --   ON cx.icd10cm_code = REPLACE(c.normalized_code,'.','')
 let ccsr_default_ip  = sql"cx.default_ccsr_ip"
 let ccsr_default_op  = sql"cx.default_ccsr_op"
 let ccsr_description = sql"cx.description"
 
--- Grouper 2: CMS-HCC V28 — risk/RAF. JOIN terminology.cmshcc_dx_hcc hx
+-- Grouper 2: CMS-HCC V28 — risk/RAF. JOIN ${cmshcc_dx_hcc} hx
 --   ON hx.icd10cm_code = REPLACE(c.normalized_code,'.','')   (weights/hierarchy in comorbidity_profile.tql)
 let hcc_category = sql"hx.hcc"
 
--- Grouper 3: CCW chronic (30). JOIN terminology.ccw_chronic ccw
+-- Grouper 3: CCW chronic (30). JOIN ${chronic_xwalk} ccw
 --   ON ccw.icd10cm_code = REPLACE(c.normalized_code,'.','')
 let chronic_condition = sql"ccw.chronic_condition"
 let is_chronic        = sql"(ccw.chronic_condition IS NOT NULL)"
@@ -39,5 +40,5 @@ let is_chronic        = sql"(ccw.chronic_condition IS NOT NULL)"
 let is_primary_dx        = sql"(c.condition_rank = 1)"        -- principal/reason-for-visit
 let present_on_admission = sql"c.present_on_admit_code"       -- comorbidity vs complication
 
--- ICD-9 handling (GEMs): dormant here — live data is ~100% icd-10-cm. For customers with
--- pre-2015 ICD-9, translate via terminology.gem_icd9_icd10 first. See notes/diagnosis-coding.md.
+-- ICD-9 handling (GEMs): dormant here — reference data is ~100% icd-10-cm. For warehouses
+-- with pre-2015 ICD-9, translate via ${icd9_to_10_gem} first. See notes/diagnosis-coding.md.

@@ -11,18 +11,18 @@ let has_icd10_prefix_in = (prefixes: List<String>) ->
   sql"EXISTS (SELECT 1 FROM UNNEST(${prefixes}) AS px WHERE REPLACE(c.normalized_code,'.','') LIKE px || '%')"
   -- Redshift: if UNNEST is unavailable, expand to chained OR of LIKE in the surface.
 
--- ── Match by grouper (needs terminology.* loaded; see reference/terminology/) ──
--- in_ccsr("END003") -> the AHRQ CCSR category (joins terminology.ccsr_icd10cm cx).
+-- ── Match by grouper (crosswalks resolve via schema.tql; see reference/terminology/) ──
+-- in_ccsr("END003") -> the AHRQ CCSR category (joins ${ccsr_xwalk} cx).
 let in_ccsr = (category: String) ->
   sql"(cx.default_ccsr_ip = ${category} OR cx.default_ccsr_op = ${category})"
 
--- is_chronic("Diabetes") -> CCW chronic flag (joins terminology.ccw_chronic ccw); null -> any.
+-- is_chronic("Diabetes") -> CCW chronic flag (joins ${chronic_xwalk} ccw); null -> any.
 let is_chronic = (condition: String?) ->
   if condition == null
     then sql"ccw.chronic_condition IS NOT NULL"
     else sql"ccw.chronic_condition = ${condition}"
 
--- in_hcc("38") -> CMS-HCC risk category (joins terminology.cmshcc_dx_hcc hx).
+-- in_hcc("38") -> CMS-HCC risk category (joins ${cmshcc_dx_hcc} hx).
 let in_hcc = (hcc: String) ->
   sql"hx.hcc = ${hcc}"
 

@@ -1,12 +1,13 @@
--- relations/eligibility.tql — Coverage / enrollment. Backings: `eligibility` + `member_months`.
--- The authoritative denominator grain for any "per member" rate. NEVER derive
+-- relations/eligibility.tql — Coverage / enrollment. Backings: schema.tql `eligibility` +
+-- `member_months`. The authoritative denominator grain for any "per member" rate. NEVER derive
 -- member-months from claims — use these tables (see notes/cost-definition.md).
 
-let eligibility   = sql"tuva.eligibility"      -- enrollment spans: person_id, enrollment_start_date, enrollment_end_date
-let member_months = sql"tuva.member_months"    -- 1 row / person / enrolled month
+let source        = sql"${eligibility}"      -- enrollment spans: person_id, enrollment_start_date, enrollment_end_date
+let months_source = sql"${member_months}"    -- 1 row / person / enrolled month
 
 -- Two ways to count member-months (the governed PMPM denominator choice):
 --   fullmonth  -> COUNT(*) over member_months  (each enrolled month = 1)
---   prorated   -> enrolled days / days-in-month, from eligibility spans (actuarial default)
-let member_months_fullmonth = sql"(SELECT COUNT(*) FROM tuva.member_months)"
-let member_months_prorated  = sql"(SELECT SUM((DATEDIFF('day', e.enrollment_start_date, LEAST(e.enrollment_end_date, LAST_DAY(e.enrollment_start_date))) + 1) / 30.0) FROM tuva.eligibility e)"
+--   prorated   -> enrolled days / 30.44, from eligibility spans (actuarial default;
+--                 open-ended spans cap at ${analysis_end_date})
+let member_months_fullmonth = sql"(SELECT COUNT(*) FROM ${member_months})"
+let member_months_prorated  = sql"(SELECT SUM((DATEDIFF('day', e.enrollment_start_date, COALESCE(e.enrollment_end_date, ${analysis_end_date})) + 1) / 30.44) FROM ${eligibility} e)"

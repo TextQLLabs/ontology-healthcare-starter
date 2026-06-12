@@ -1,7 +1,7 @@
 -- relations/procedure.tql — Procedure fact. Backing: schema.tql `procedure`.
--- VERIFIED against live tuva.procedure (2026-06-08). Codes in normalized_code/_type.
+-- VERIFIED against the live reference dataset (2026-06-08). Codes in normalized_code/_type.
 
-let source = sql"tuva.procedure"
+let source = sql"${procedure}"
 
 -- VERIFIED columns (alias `pr`):
 --   person_id, encounter_id, claim_id

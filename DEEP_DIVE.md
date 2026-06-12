@@ -34,6 +34,7 @@ requests like code: propose → diff → review → approve → audit. No propri
 ```
 README.md                 what this is + quick start
 GETTING_STARTED.md        Ana-centric setup walkthrough (screenshots)
+MIGRATION.md              re-point the starter at YOUR warehouse in 8 steps (+ field lessons)
 DEEP_DIVE.md              this document
 STANDARDS.md              alignment to Tuva / OMOP / FHIR / X12
 LICENSING.md              which code systems are bundled vs. fetched-with-your-license
@@ -43,7 +44,8 @@ config/
   org_context.md          Ana's system instructions: dialect, PHI rules, coding rules
 
 ontology/
-  schema.tql              central table backings (the one place table names live)
+  schema.tql              ⭐ THE physical mapping layer — the ONLY file with real table names;
+                          surfaces reference logical ${name} backings that resolve here
   relations/              one module per entity: source table + key columns + notes
     person.tql            member grain DERIVED from eligibility (no patient table exists)
     condition.tql         diagnosis fact
@@ -67,7 +69,8 @@ ontology/
   notes/                  decision records + rationale (the "why")
     diagnosis-coding.md, code-systems-overview.md, cost-definition.md,
     readmission-definition.md, risk-adjustment-hcc.md, governance-phi.md,
-    terminology-join-pattern.md
+    terminology-join-pattern.md, glossary.md (override per deployment),
+    claim-grain.md (header/line/event), join-key-verification.md
 
 reference/terminology/    the grouper crosswalks (committed, public domain) + loaders
   icd10cm_chapters.csv     ICD-10 chapter/block ranges
@@ -79,8 +82,9 @@ reference/terminology/    the grouper crosswalks (committed, public domain) + lo
   fetch_vsac.py            hydrates certified VSAC value sets with your UMLS key
   value-sets.json/.md      VSAC OID registry + the fetch-don't-bundle policy
 
-databases/tuva/           per-table schema docs (verified columns, joins, gotchas)
-validation/               golden-queries.md (pinned values), dry-run + seed-test playbooks
+databases/tuva/           the REFERENCE dataset's per-table docs (copy the shape for yours)
+validation/               validate_tql.py (schema/compile checker), golden-queries.md
+                          (pinned values), dry-run + seed-test playbooks
 ```
 
 ---

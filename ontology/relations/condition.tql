@@ -1,11 +1,11 @@
 -- relations/condition.tql — the Diagnosis fact. Backing: schema.tql `condition`.
--- One row per diagnosis. VERIFIED column names against live tuva.condition (2026-06-08).
+-- One row per diagnosis. VERIFIED column names against the live reference dataset (2026-06-08).
 --
--- ⚠️ Codes are in normalized_code / normalized_code_type (Tuva normalizes source codes).
---    Data is ~100% icd-10-cm (212,864 rows; 147 null). NEVER filter raw codes — go through
+-- ⚠️ Codes are in normalized_code / normalized_code_type (the reference model normalizes
+--    source codes). Data is ~100% icd-10-cm. NEVER filter raw codes — go through
 --    dimensions/diagnosis.tql. Rank + POA matter (notes/diagnosis-coding.md).
 
-let source = sql"tuva.condition"
+let source = sql"${condition}"
 
 -- VERIFIED columns (alias `c`):
 --   person_id              join key

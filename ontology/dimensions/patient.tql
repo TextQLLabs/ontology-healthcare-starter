@@ -1,26 +1,26 @@
 -- dimensions/patient.tql — member grouping attributes.
--- VERIFIED: no `patient` table; demographics come from eligibility via the person CTE
--- (relations/person.tql). Alias `p` = that person CTE:
---   person AS (SELECT person_id, MIN(birth_date) AS birth_date,
---                     MAX(fips_state_abbreviation) AS state FROM tuva.eligibility GROUP BY person_id)
+-- Backing: schema.tql `person_grain` (one row per member: person_id, birth_date, state).
+-- Alias `p` = ${person_grain}. Age math anchors on ${analysis_end_date} (the data horizon),
+-- never the wall clock — update it in schema.tql on re-point.
 
--- Age from birth_date relative to the analysis date (Tuva demo: 2018-12-31).
-let age = sql"DATEDIFF('year', p.birth_date, DATE '2018-12-31')"
+let age = sql"DATEDIFF('year', p.birth_date, ${analysis_end_date})"
 let age_band = sql"""
   CASE
-    WHEN DATEDIFF('year', p.birth_date, DATE '2018-12-31') < 18 THEN '0-17'
-    WHEN DATEDIFF('year', p.birth_date, DATE '2018-12-31') < 35 THEN '18-34'
-    WHEN DATEDIFF('year', p.birth_date, DATE '2018-12-31') < 50 THEN '35-49'
-    WHEN DATEDIFF('year', p.birth_date, DATE '2018-12-31') < 65 THEN '50-64'
+    WHEN DATEDIFF('year', p.birth_date, ${analysis_end_date}) < 18 THEN '0-17'
+    WHEN DATEDIFF('year', p.birth_date, ${analysis_end_date}) < 35 THEN '18-34'
+    WHEN DATEDIFF('year', p.birth_date, ${analysis_end_date}) < 50 THEN '35-49'
+    WHEN DATEDIFF('year', p.birth_date, ${analysis_end_date}) < 65 THEN '50-64'
     ELSE '65+'
   END
 """
 
-let state = sql"p.state"                 -- fips_state_abbreviation, 2-letter
+let state = sql"p.state"                 -- 2-letter state abbreviation
 
--- ⚠️ NOT AVAILABLE in this dataset: sex/gender, race, ethnicity (no such columns on
---    eligibility or any table). Health-equity breakdowns require an external demographic
---    source. Do not invent these dimensions; mark them unavailable until a source is added.
+-- ⚠️ NOT AVAILABLE in the reference dataset: sex/gender, race, ethnicity (no such columns).
+--    Health-equity breakdowns require an external demographic source. Do not invent these
+--    dimensions; mark them unavailable until a source is added.
+-- ⚠️ If you DO add member-level socioeconomic/SDOH joins (income, housing, census tract),
+--    read governance-phi.md §re-identification first — small-group joins can re-identify.
 -- let sex = ...        (unavailable)
 -- let race = ...       (unavailable)
 -- let ethnicity = ...  (unavailable)

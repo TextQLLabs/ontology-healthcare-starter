@@ -1,12 +1,17 @@
 -- relations/medical_claim.tql — Medical claim fact. Backing: schema.tql `medical_claim`.
 -- Institutional + professional medical claim lines. Cost numerator source.
+--
+-- ⚠️ GRAIN: the reference dataset is line grain with person_id ON the row. If your warehouse
+--    splits claim header / line / event, read notes/claim-grain.md FIRST — each column below
+--    lives on exactly one of those tables, and the member key may only be reachable via a
+--    bridge from the header.
 
-let source = sql"tuva.medical_claim"
+let source = sql"${medical_claim}"
 
 -- Stable columns:
 --   person_id        join key
 --   claim_id         claim header id (header vs line grain — confirm on discovery)
---   charge_amount    ✅ use this for cost — paid_amount / allowed_amount are SPARSE in tuva
+--   charge_amount    ✅ use this for cost — paid_amount / allowed_amount are SPARSE in the reference data
 --   service_date / claim_start_date / claim_end_date
 --   place_of_service, revenue_code, bill_type   (X12 837 origin; setting + service type)
 

@@ -1,6 +1,7 @@
 -- condition_prevalence.tql — governed disease prevalence. VERIFIED columns 2026-06-08.
 -- "How many members have <condition>" via a grouper, never guessed codes.
--- condition codes = normalized_code / normalized_code_type; no patient table (person CTE).
+-- Table backings resolve via ontology/schema.tql (${condition}, ${person_grain},
+-- ${ccsr_xwalk}, ${chronic_xwalk}, ${cmshcc_dx_hcc}) — repoint there, not here.
 
 params {
   grouper: Set<"value_set" | "ccsr" | "chronic" | "hcc" | "icd10_prefix"> = ["value_set"]
@@ -24,16 +25,15 @@ let
 
 in sql''
   WITH person AS (
-    SELECT person_id, MAX(fips_state_abbreviation) AS state
-    FROM tuva.eligibility GROUP BY person_id
+    SELECT person_id, state FROM ${person_grain} pg
   ),
   cohort AS (
     SELECT DISTINCT c.person_id
-    FROM tuva.condition c
+    FROM ${condition} c
     JOIN person pe ON pe.person_id = c.person_id
-    LEFT JOIN terminology.ccsr_icd10cm   cx  ON cx.icd10cm_code = REPLACE(c.normalized_code,'.','')
-    LEFT JOIN terminology.ccw_chronic    ccw ON ccw.icd10cm_code = REPLACE(c.normalized_code,'.','')
-    LEFT JOIN terminology.cmshcc_dx_hcc  hx  ON hx.icd10cm_code = REPLACE(c.normalized_code,'.','')
+    LEFT JOIN ${ccsr_xwalk}      cx  ON cx.icd10cm_code = REPLACE(c.normalized_code,'.','')
+    LEFT JOIN ${chronic_xwalk}   ccw ON ccw.icd10cm_code = REPLACE(c.normalized_code,'.','')
+    LEFT JOIN ${cmshcc_dx_hcc}   hx  ON hx.icd10cm_code = REPLACE(c.normalized_code,'.','')
     WHERE c.normalized_code_type = 'icd-10-cm'
       AND (${dx_filter})
       ${primary_filter}
@@ -47,5 +47,5 @@ in sql''
          d.members                                                    AS eligible_members,
          (SELECT COUNT(*) FROM cohort)::DECIMAL / NULLIF(d.members, 0) AS prevalence_rate
   FROM denom d
-  -- governance: suppress any cell where members_with_condition < 11 (governance-phi.md).
+  -- governance: suppress any cell where members_with_condition < min_cell_size (governance-phi.md).
 ''

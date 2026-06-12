@@ -1,5 +1,7 @@
 -- cost_pmpm.tql — cost per member per month (governed). VERIFIED + golden-tested 2026-06-08.
 -- Numerator = medical claim cost; denominator = member months. See notes/cost-definition.md.
+-- Table backings resolve via ontology/schema.tql (${medical_claim}, ${member_months},
+-- ${eligibility}, ${person_grain}, ${analysis_end_date}) — repoint there, not here.
 --
 -- DECISION (denominator): basis = prorated (actuarial default) vs fullmonth.
 --   * fullmonth  = COUNT(*) of member_months rows.
@@ -26,22 +28,18 @@ let
     "total"   -> sql"mc.total_cost_amount"
   }
   member_months_expr = matchSet basis {
-    "fullmonth" -> sql"(SELECT COUNT(*) FROM tuva.member_months)"
-    -- prorated: total enrolled days / 30.44, over all eligibility spans (null end -> cap at analysis date)
-    "prorated"  -> sql"(SELECT SUM((DATEDIFF('day', e.enrollment_start_date, COALESCE(e.enrollment_end_date, DATE '2018-12-31')) + 1) / 30.44) FROM tuva.eligibility e)"
+    "fullmonth" -> sql"(SELECT COUNT(*) FROM ${member_months})"
+    -- prorated: total enrolled days / 30.44, over all eligibility spans (null end -> cap at analysis horizon)
+    "prorated"  -> sql"(SELECT SUM((DATEDIFF('day', e.enrollment_start_date, COALESCE(e.enrollment_end_date, ${analysis_end_date})) + 1) / 30.44) FROM ${eligibility} e)"
   }
 
 in sql''
-  WITH person AS (
-    SELECT person_id, MAX(fips_state_abbreviation) AS state
-    FROM tuva.eligibility GROUP BY person_id
-  )
   SELECT
     SUM(${cost_col})                                            AS total_cost,
     ${member_months_expr}                                       AS member_months,
     SUM(${cost_col})::DECIMAL / NULLIF(${member_months_expr}, 0) AS cost_pmpm
-  FROM tuva.medical_claim mc
-  JOIN person pe ON pe.person_id = mc.person_id
+  FROM ${medical_claim} mc
+  JOIN ${person_grain} pe ON pe.person_id = mc.person_id
   WHERE 1=1
     ${state_filter}
 ''

@@ -69,10 +69,20 @@ Ana reads these alongside the ontology and can fold what it learns into the mode
 
 ## Use it: just ask Ana
 
-### 4. Let Ana validate the model against your data
+### 4. Validate the model against your data — REQUIRED before trusting any number
 
-Before trusting numbers, have Ana check that the ontology's assumptions match your actual
-tables. **You don't write any SQL** — just ask:
+The ontology ships pointed at a reference dataset; your tables WILL differ (names, grain,
+code values). Two complementary checks, both cheap:
+
+**a) The validator script** — mechanically verifies every governed surface against your
+warehouse: each logical name resolves, each referenced column exists, each query compiles.
+
+```bash
+python3 validation/validate_tql.py              # static checks, no warehouse needed
+python3 validation/validate_tql.py --check-sql  # paste the output into Ana; rows = problems
+```
+
+**b) Ask Ana to do the discovery diff.** You don't write any SQL — just ask:
 
 > **You:** *"Look at the ontology repo, then inspect my warehouse. Pull the information schema
 > for my claims tables and tell me where the ontology's expected table and column names don't
@@ -83,7 +93,8 @@ fixes (table backings, column names). If anything's off, you just say *"make tho
 open a pull request"* — Ana edits the files and opens a reviewable PR in your repo.
 
 > There's a ready-made version of this check in `validation/dry-run-prompt.md` — you can paste
-> it straight into Ana.
+> it straight into Ana. The full re-point checklist (claim grain, join verification, governance
+> tuning, glossary localization) is `MIGRATION.md`.
 
 ### 5. Terminology — already included, nothing to load
 
@@ -134,6 +145,7 @@ in your git. Nothing changes silently; you approve it like any code change.
 ---
 
 ## Where to look next
+- **`MIGRATION.md`** — re-point the starter at your own warehouse in 8 steps (+ field lessons).
 - **`DEEP_DIVE.md`** — a full technical tour: every file, every metric, every acronym. Read this
   if you want to *really* understand what's in here.
 - **`NAVIGATION.md`** — the routing table Ana reads first.

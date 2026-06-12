@@ -1,7 +1,7 @@
 -- comorbidity_profile.tql — risk burden via CMS-HCC / RAF (V28, PY2026). Payer money surface.
 -- VERIFIED columns 2026-06-08. Applies the CMS-HCC HIERARCHY (trumping) + SEGMENT coefficients.
--- condition codes = normalized_code / normalized_code_type; no patient table (person CTE for state).
--- Crosswalks via reference/terminology/load_terminology.py. See notes/risk-adjustment-hcc.md.
+-- Table backings resolve via ontology/schema.tql (${condition}, ${person_grain},
+-- ${cmshcc_dx_hcc}, ${cmshcc_coeff}, ${cmshcc_hierarchy}). See notes/risk-adjustment-hcc.md.
 
 params {
   level: Set<"member" | "population" | "by_hcc"> = ["population"]
@@ -17,20 +17,19 @@ let
     "member"     -> sql"SELECT person_id, member_raf FROM member_raf ORDER BY member_raf DESC"
     "population" -> sql"SELECT AVG(member_raf) AS mean_raf, COUNT(*) AS members FROM member_raf"
     -- where the burden concentrates: members + total RAF contribution per HCC (members x weight)
-    "by_hcc"     -> sql"SELECT s.hcc, MAX(co.label) AS hcc_label, COUNT(DISTINCT s.person_id) AS members, COUNT(DISTINCT s.person_id) * MAX(co.coeff::DECIMAL) AS total_raf_contribution FROM surviving_hccs s JOIN terminology.cmshcc_coefficients co ON co.segment = ${segment} AND co.hcc = s.hcc GROUP BY s.hcc ORDER BY total_raf_contribution DESC"
+    "by_hcc"     -> sql"SELECT s.hcc, MAX(co.label) AS hcc_label, COUNT(DISTINCT s.person_id) AS members, COUNT(DISTINCT s.person_id) * MAX(co.coeff::DECIMAL) AS total_raf_contribution FROM surviving_hccs s JOIN ${cmshcc_coeff} co ON co.segment = ${segment} AND co.hcc = s.hcc GROUP BY s.hcc ORDER BY total_raf_contribution DESC"
   }
 
 in sql''
   WITH person AS (
-    SELECT person_id, MAX(fips_state_abbreviation) AS state
-    FROM tuva.eligibility GROUP BY person_id
+    SELECT person_id, state FROM ${person_grain} pg
   ),
   member_hccs AS (
     -- distinct HCCs per member from qualifying measurement-year diagnoses (V28 map)
     SELECT DISTINCT c.person_id, x.hcc
-    FROM tuva.condition c
+    FROM ${condition} c
     JOIN person pe ON pe.person_id = c.person_id
-    JOIN terminology.cmshcc_dx_hcc x ON x.icd10cm_code = REPLACE(c.normalized_code, '.', '')
+    JOIN ${cmshcc_dx_hcc} x ON x.icd10cm_code = REPLACE(c.normalized_code, '.', '')
     WHERE c.normalized_code_type = 'icd-10-cm'
       AND c.recorded_date BETWEEN DATE ${year_start} AND DATE ${year_end}
       ${state_filter}
@@ -39,7 +38,7 @@ in sql''
   trumped AS (
     SELECT mh.person_id, mh.hcc AS excluded_hcc
     FROM member_hccs mh
-    JOIN terminology.cmshcc_hierarchy h ON h.excluded_hcc = mh.hcc
+    JOIN ${cmshcc_hierarchy} h ON h.excluded_hcc = mh.hcc
     JOIN member_hccs sup ON sup.person_id = mh.person_id AND sup.hcc = h.superior_hcc
   ),
   surviving_hccs AS (
@@ -51,10 +50,10 @@ in sql''
   hcc_raf AS (
     SELECT s.person_id, SUM(co.coeff::DECIMAL) AS hcc_raf
     FROM surviving_hccs s
-    JOIN terminology.cmshcc_coefficients co ON co.segment = ${segment} AND co.hcc = s.hcc
+    JOIN ${cmshcc_coeff} co ON co.segment = ${segment} AND co.hcc = s.hcc
     GROUP BY s.person_id
   ),
   member_raf AS (SELECT person_id, hcc_raf AS member_raf FROM hcc_raf)
   ${member_select}
-  -- governance: population view is safe; suppress member-level cells < 11 (governance-phi.md).
+  -- governance: population view is safe; suppress member-level cells < min_cell_size (governance-phi.md).
 ''

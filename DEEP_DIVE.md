@@ -36,9 +36,11 @@ README.md                 what this is + quick start
 GETTING_STARTED.md        Ana-centric setup walkthrough (screenshots)
 MIGRATION.md              re-point the starter at YOUR warehouse in 8 steps (+ field lessons)
 DEEP_DIVE.md              this document
-STANDARDS.md              alignment to Tuva / OMOP / FHIR / X12
+STANDARDS.md              alignment to Tuva / OMOP / FHIR / X12 / SAP CHP + convergence
+SOURCES.md                citation index — every standard/crosswalk: URL, version, access date
 LICENSING.md              which code systems are bundled vs. fetched-with-your-license
 NAVIGATION.md             routing table — Ana reads this FIRST to map intent → files
+ana.md                    context routing: the org / persona / personal three-layer model
 
 config/
   org_context.md          Ana's system instructions: dialect, PHI rules, coding rules
@@ -70,7 +72,8 @@ ontology/
     diagnosis-coding.md, code-systems-overview.md, cost-definition.md,
     readmission-definition.md, risk-adjustment-hcc.md, governance-phi.md,
     terminology-join-pattern.md, glossary.md (override per deployment),
-    claim-grain.md (header/line/event), join-key-verification.md
+    claim-grain.md (header/line/event + EAV + bi-temporal), join-key-verification.md,
+    coding-tuple.md (code system + version), identity-resolution.md (best-record / EMPI)
 
 reference/terminology/    the grouper crosswalks (committed, public domain) + loaders
   icd10cm_chapters.csv     ICD-10 chapter/block ranges

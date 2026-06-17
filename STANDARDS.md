@@ -21,17 +21,36 @@ least-common-denominator of these — you can map any of them onto it.
 - **X12 837 / 835** — the EDI transactions claims actually arrive in (837 = claim submission,
   835 = remittance). Header vs. line grain, dx pointers, POA, revenue/bill-type codes all
   originate here. Useful when modeling raw claims feeds.
+- **SAP Connected Health Platform (CHP)** — an enterprise clinical data warehouse model
+  (SAP HANA). Map: Patient→person, Practitioner→practitioner, Organization→org/authorization,
+  Observation→lab_result/observation, Condition→condition, **Interaction**→encounter (and any
+  clinically-relevant event — diagnosis, therapy, contact). CHP stores interaction attributes
+  **EAV-style** rather than as fixed columns (`notes/claim-grain.md`), every coded attribute as
+  a **codification tuple** (`notes/coding-tuple.md`), member identity via a **Patient Best
+  Record** (`notes/identity-resolution.md`), and **bi-temporal** validity. Use when a customer's
+  warehouse is SAP/HANA-based or otherwise EAV-shaped.
 
 ## Why this matters
 A payer's analysts think in **groupers and measures** (CCSR, HCC, HEDIS), not raw codes or
-raw tables. Anchoring to these models lets us say "this maps to OMOP/FHIR/Tuva" and reuse
+raw tables. Anchoring to these models lets us say "this maps to OMOP/FHIR/Tuva/SAP" and reuse
 their public terminology — which is what makes the terminology layer (Layer 3) robust
 instead of hand-rolled.
 
-## Authoritative external references (free)
-- ICD-10-CM/PCS files — CMS.gov / CDC NCHS
-- CCSR — AHRQ HCUP
-- HCC model — CMS (CMS-HCC risk adjustment model)
-- CCW chronic conditions — CMS Chronic Conditions Warehouse
-- RxNorm / UMLS — NLM
-- Value sets for quality measures — VSAC (NLM)
+## Convergence — the same shape, four times over
+These models were designed independently, yet agree on three structural choices. That agreement
+is *why* the spine is portable, and each has a working note:
+
+1. **A code is a tuple, not a column** — original value + standardized code + code system +
+   version. Tuva `source/normalized`, FHIR `CodeableConcept`, OMOP `*_source_value`/`concept_id`,
+   SAP `Codification`. → `notes/coding-tuple.md`.
+2. **Member identity is resolved, not assumed** — many source ids collapse to one real person.
+   Tuva `person_id_crosswalk`, SAP `Patient Best Record`, MDM/EMPI golden record. →
+   `notes/identity-resolution.md`.
+3. **Terminology is externalized** — codes resolve through a separate vocabulary/grouper layer
+   (Athena, FHIR `system` URIs, SAP "ontology services", our `reference/terminology/`), not
+   hard-coded in queries. → `notes/terminology-join-pattern.md`.
+
+## Sources & citations
+Full provenance — every standard and crosswalk above with a stable URL, pinned version, and
+access date, plus the cross-reference showing our crosswalks share the **same** CMS / AHRQ / NLM
+origins these models all sit on — is in **`SOURCES.md`**. Cite from there, not from memory.

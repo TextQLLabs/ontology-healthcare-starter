@@ -41,7 +41,9 @@ Interpret:
 - `keys_joined / keys_left` < ~95% → claims for members you can't see; every per-member rate
   is silently understated. Find out why before publishing a number.
 - `keys_joined` ≈ 0 with matching column names → same name, different id space (source-system
-  id vs. enterprise id). Common after migrations/M&A. Look for a crosswalk table.
+  id vs. enterprise id). Common after migrations/M&A and across multi-source feeds. This is the
+  signal to route through an identity crosswalk, not that the join is broken — see
+  `notes/identity-resolution.md`.
 
 ## 3. Is the join 1:1, 1:N, or N:N? (grain check — prevents double counting)
 

@@ -35,14 +35,21 @@ metric definitions — they are defined here.
 | **Members / enrollment / demographics** | `relations/person.tql` · `relations/eligibility.tql` · `dimensions/patient.tql` |
 | **Providers / specialty** | `dimensions/provider.tql` |
 | **What a business term means (claim vs line, allowed vs paid, tier…)** | `notes/glossary.md` |
-| **Claim header vs line vs event / why a count looks doubled** | `notes/claim-grain.md` |
+| **Claim header vs line vs event / EAV source / why a count looks doubled** | `notes/claim-grain.md` |
 | **Whether two tables join / how to verify a key** | `notes/join-key-verification.md` |
+| **Multi-source member ids / "best record" / member double-counting** | `notes/identity-resolution.md` |
+| **What code system/version a column is in (source vs normalized)** | `notes/coding-tuple.md` |
 | **Setting up against a new warehouse / renaming tables** | `MIGRATION.md` · `ontology/schema.tql` · `validation/validate_tql.py` |
 | **Which code systems exist / licensing** | `notes/code-systems-overview.md` · `LICENSING.md` |
+| **Where did a definition come from / cite a source** | `SOURCES.md` · `STANDARDS.md` |
+| **How context is organized (org / persona / personal)** | `ana.md` |
 
 ## Repo map
 ```
+ana.md                      context routing: org / persona / personal layers (read first)
 config/org_context.md       agent system instructions, per-deployment CONFIG, PHI rules
+SOURCES.md                  citation index — every standard/crosswalk with URL + version
+STANDARDS.md                data-model alignment (Tuva/OMOP/FHIR/X12/SAP) + convergence
 MIGRATION.md                re-point the starter at a new warehouse in 8 steps (+ field lessons)
 ontology/
   schema.tql                THE physical mapping layer — the only file naming real tables
@@ -50,7 +57,8 @@ ontology/
   dimensions/               grouping expressions, each with the join it needs
   filters/                  reusable filter predicates (eq/gte/in/… + clinical value-sets)
   queries/                  public governed query surfaces (the metrics)
-  notes/                    decision records, glossary, grain/join/PHI guidance
+  notes/                    decision records, glossary, coding-tuple, identity-resolution,
+                            claim-grain, join-verification, PHI guidance
 reference/terminology/      public grouper crosswalks (CCSR, HCC, chronic, ICD chapters)
 databases/tuva/             the REFERENCE dataset's docs — copy the folder shape for yours
 validation/                 validate_tql.py · dry-run prompt · golden-query fixtures

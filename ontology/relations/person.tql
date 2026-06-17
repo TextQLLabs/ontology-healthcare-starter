@@ -22,3 +22,6 @@ let source = sql"${person_grain}"
 --    dimension on those must be sourced elsewhere or marked unavailable (dimensions/patient.tql).
 -- ⚠️ member_id / subscriber_id are DIRECT IDENTIFIERS — usable as join keys, never as output
 --    columns (governance-phi.md §identifier-inventory).
+-- ⚠️ MULTI-SOURCE IDENTITY: if members appear under different ids across feeds (claims vs
+--    pharmacy vs lab), point person_grain at the RESOLVED id and collapse on it — not on a
+--    source id — or member counts double-count. See notes/identity-resolution.md.

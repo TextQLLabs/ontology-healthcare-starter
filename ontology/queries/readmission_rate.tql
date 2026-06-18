@@ -36,6 +36,6 @@ in sql''
   )
   SELECT COUNT(*)                                      AS index_admissions,
          SUM(readmitted)                               AS readmissions,
-         SUM(readmitted)::DECIMAL / NULLIF(COUNT(*),0) AS readmission_rate_30d
+         SUM(readmitted) * 1.0 / NULLIF(COUNT(*),0) AS readmission_rate_30d
   FROM flagged
 ''

@@ -25,7 +25,7 @@ in sql''
   SELECT
     ${event_expr}                                          AS events,
     ${member_months_expr}                                  AS member_months,
-    (${event_expr})::DECIMAL / NULLIF(${member_months_expr},0) * 12000 AS per_1000_annualized
+    (${event_expr}) * 1.0 / NULLIF(${member_months_expr},0) * 12000 AS per_1000_annualized
   FROM ${encounter} e
   JOIN ${person_grain} pe ON pe.person_id = e.person_id
   WHERE 1=1

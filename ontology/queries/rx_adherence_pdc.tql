@@ -34,12 +34,12 @@ in sql''
   ),
   member_pdc AS (
     SELECT person_id,
-           LEAST(SUM(covered_days)::DECIMAL / NULLIF(${window_days}, 0), 1.0) AS pdc
+           LEAST(SUM(covered_days) * 1.0 / NULLIF(${window_days}, 0), 1.0) AS pdc
     FROM fills GROUP BY person_id
   )
   SELECT COUNT(*)                                                       AS members_measured,
          AVG(pdc)                                                       AS mean_pdc,
-         SUM(CASE WHEN pdc >= 0.80 THEN 1 ELSE 0 END)::DECIMAL / NULLIF(COUNT(*),0) AS pct_adherent
+         SUM(CASE WHEN pdc >= 0.80 THEN 1 ELSE 0 END) * 1.0 / NULLIF(COUNT(*),0) AS pct_adherent
   FROM member_pdc
   -- governance: suppress if members_measured < min_cell_size (governance-phi.md).
 ''

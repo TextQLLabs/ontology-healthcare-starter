@@ -40,7 +40,7 @@ in sql''
   )
   SELECT (SELECT COUNT(*) FROM denom)                                                       AS eligible,
          (SELECT COUNT(*) FROM denom d WHERE d.person_id IN (SELECT person_id FROM numer))  AS met,
-         (SELECT COUNT(*) FROM denom d WHERE d.person_id IN (SELECT person_id FROM numer))::DECIMAL
+         (SELECT COUNT(*) FROM denom d WHERE d.person_id IN (SELECT person_id FROM numer)) * 1.0
            / NULLIF((SELECT COUNT(*) FROM denom),0)                                         AS measure_rate
   -- governance: suppress if eligible < min_cell_size (governance-phi.md).
 ''

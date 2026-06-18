@@ -17,7 +17,7 @@ let
     "member"     -> sql"SELECT person_id, member_raf FROM member_raf ORDER BY member_raf DESC"
     "population" -> sql"SELECT AVG(member_raf) AS mean_raf, COUNT(*) AS members FROM member_raf"
     -- where the burden concentrates: members + total RAF contribution per HCC (members x weight)
-    "by_hcc"     -> sql"SELECT s.hcc, MAX(co.label) AS hcc_label, COUNT(DISTINCT s.person_id) AS members, COUNT(DISTINCT s.person_id) * MAX(co.coeff::DECIMAL) AS total_raf_contribution FROM surviving_hccs s JOIN ${cmshcc_coeff} co ON co.segment = ${segment} AND co.hcc = s.hcc GROUP BY s.hcc ORDER BY total_raf_contribution DESC"
+    "by_hcc"     -> sql"SELECT s.hcc, MAX(co.label) AS hcc_label, COUNT(DISTINCT s.person_id) AS members, COUNT(DISTINCT s.person_id) * MAX(CAST(co.coeff AS DECIMAL(18,6))) AS total_raf_contribution FROM surviving_hccs s JOIN ${cmshcc_coeff} co ON co.segment = ${segment} AND co.hcc = s.hcc GROUP BY s.hcc ORDER BY total_raf_contribution DESC"
   }
 
 in sql''
@@ -48,7 +48,7 @@ in sql''
     WHERE t.excluded_hcc IS NULL
   ),
   hcc_raf AS (
-    SELECT s.person_id, SUM(co.coeff::DECIMAL) AS hcc_raf
+    SELECT s.person_id, SUM(CAST(co.coeff AS DECIMAL(18,6))) AS hcc_raf
     FROM surviving_hccs s
     JOIN ${cmshcc_coeff} co ON co.segment = ${segment} AND co.hcc = s.hcc
     GROUP BY s.person_id

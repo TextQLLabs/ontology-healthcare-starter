@@ -37,7 +37,7 @@ in sql''
   SELECT
     SUM(${cost_col})                                            AS total_cost,
     ${member_months_expr}                                       AS member_months,
-    SUM(${cost_col})::DECIMAL / NULLIF(${member_months_expr}, 0) AS cost_pmpm
+    SUM(${cost_col}) * 1.0 / NULLIF(${member_months_expr}, 0) AS cost_pmpm
   FROM ${medical_claim} mc
   JOIN ${person_grain} pe ON pe.person_id = mc.person_id
   WHERE 1=1

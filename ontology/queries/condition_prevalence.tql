@@ -45,7 +45,7 @@ in sql''
   )
   SELECT (SELECT COUNT(*) FROM cohort)                                AS members_with_condition,
          d.members                                                    AS eligible_members,
-         (SELECT COUNT(*) FROM cohort)::DECIMAL / NULLIF(d.members, 0) AS prevalence_rate
+         (SELECT COUNT(*) FROM cohort) * 1.0 / NULLIF(d.members, 0) AS prevalence_rate
   FROM denom d
   -- governance: suppress any cell where members_with_condition < min_cell_size (governance-phi.md).
 ''

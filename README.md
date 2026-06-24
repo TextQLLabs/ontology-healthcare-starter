@@ -1,19 +1,28 @@
 # Healthcare & Life Sciences Ontology
 
-Your starting point for a governed, AI-ready ontology over healthcare and life-sciences data —
-members, claims, encounters, diagnoses, procedures, drugs, cost, utilization, quality, and risk.
+A **document of expertise** for healthcare and life-sciences data — the entity vocabulary,
+governed metric definitions, terminology crosswalks, PHI governance, and the hard-won
+*known failure modes* of working with members, claims, encounters, diagnoses, procedures,
+drugs, cost, utilization, quality, and risk.
 
-Connect it to Ana and your data warehouse, point it at your tables, and grow it from here.
+> 🧭 **Read [`NORTH_STAR.md`](NORTH_STAR.md) first.** This repo is **not a schema to deploy or
+> a form to fill out** — treating it that way is the fastest way to build a model nobody trusts.
+> It is a warm-start *corpus* that Ana reads as context, and a head start on the model **you and
+> Ana build against real questions**, committed to git as you go. `NORTH_STAR.md` shows you how:
+> name what your ontology is *for*, pick the archetype that fits, and let the model accrete from
+> use. Then [`QUESTION_LIBRARY.md`](QUESTION_LIBRARY.md) helps you choose the ~20 questions that
+> matter.
 
-> 🚀 **New here? Read [`GETTING_STARTED.md`](GETTING_STARTED.md)** — a step-by-step walkthrough:
-> what this is, why it matters, how to set it up in your own Ana environment, and how to make it
-> yours. **Pointing it at your own warehouse? [`MIGRATION.md`](MIGRATION.md)** is the 8-step
+> 🚀 **Ready to connect it?** [`GETTING_STARTED.md`](GETTING_STARTED.md) is the step-by-step
+> walkthrough. **Pointing it at your own warehouse?** [`MIGRATION.md`](MIGRATION.md) is the 8-step
 > re-point checklist. For a deep technical tour, see [`DEEP_DIVE.md`](DEEP_DIVE.md).
 
-It is **just files** — Markdown + `.tql` in a git repo. Business definitions, SQL templates, and
-the reasoning behind them live together, are diff-able, and render to **native warehouse SQL**.
-When you connect the repo to Ana, Ana reads it and treats it as ground truth — so questions get
-answered with consistent, governed SQL instead of guesswork.
+It is **just files** — Markdown + `.tql` in a git repo. Most of what matters here is *prose and
+reasoning*: definitions of what terms mean, where the data gets messy, and why each metric is
+shaped the way it is. The `.tql` files are the **governed metric layer you grow into** — one file
+type among many, not where you start. When you connect the repo to Ana, Ana reads all of it as
+context and proposes its own additions back as git commits you review — a **malleable, self-
+maintaining semantic layer** (see `NORTH_STAR.md` → *Why this works*), not a static template.
 
 > ⚠️ **Code-system scope.** Ships **free / public-domain** code systems and groupers
 > (ICD-10-CM/PCS, ICD-9 + GEMs, HCPCS, NDC, RxNorm, MS-DRG/APC, CCSR, CMS-HCC, CCW chronic) —
@@ -45,11 +54,17 @@ answered with consistent, governed SQL instead of guesswork.
 
 ## Quick start (full version in `GETTING_STARTED.md`)
 
-1. **Connect this repo to Ana** via the Git connector — Ana now knows the whole ontology.
+0. **Name your North Star** — what does someone do differently on Monday when this works?
+   Pick the archetype that fits (`NORTH_STAR.md`) and the ~20 questions that matter
+   (`QUESTION_LIBRARY.md`). *Skip this and you'll build a model nobody trusts.*
+1. **Connect this repo to Ana** via the Git connector — Ana now reads the whole corpus as context.
 2. **Connect your data warehouse** (Redshift, BigQuery, Snowflake, …) — read-only is enough.
+   Point Ana at any existing context you have too (dbt, LookML, a metrics wiki) — as corpus, not migration.
 3. **Validate before you trust** — run the dry-run prompt + `validation/validate_tql.py`
    against your schema, fix what they find (usually just `ontology/schema.tql`). See `MIGRATION.md`.
-4. **Start asking questions** — Ana routes each through the governed definitions and shows its SQL.
+4. **Ask your real questions** — Ana answers governed ones from the definitions (showing its SQL),
+   explores the frontier for the rest, and **proposes write-backs as git commits you review**.
+   The model accretes from use; you ratify it. That's the malleable loop, not a one-time deploy.
 
 The terminology crosswalks are already in the repo, so the grouper logic (CCSR, HCC/RAF, chronic)
 works with **zero writes to your warehouse** — Ana joins them in its Python sandbox. See

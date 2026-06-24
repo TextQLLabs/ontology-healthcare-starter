@@ -9,9 +9,8 @@ drugs, cost, utilization, quality, and risk.
 > a form to fill out** — treating it that way is the fastest way to build a model nobody trusts.
 > It is a warm-start *corpus* that Ana reads as context, and a head start on the model **you and
 > Ana build against real questions**, committed to git as you go. `NORTH_STAR.md` shows you how:
-> name what your ontology is *for*, pick the archetype that fits, and let the model accrete from
-> use. Then [`QUESTION_LIBRARY.md`](QUESTION_LIBRARY.md) helps you choose the ~20 questions that
-> matter.
+> connect your data and let **Ana scan it and propose your North Star and the use case that fits**
+> — you just confirm or redirect — then let the model accrete from use. No questionnaire to fill out.
 
 > 🚀 **Ready to connect it?** [`GETTING_STARTED.md`](GETTING_STARTED.md) is the step-by-step
 > walkthrough. **Pointing it at your own warehouse?** [`MIGRATION.md`](MIGRATION.md) is the 8-step
@@ -54,9 +53,9 @@ maintaining semantic layer** (see `NORTH_STAR.md` → *Why this works*), not a s
 
 ## Quick start (full version in `GETTING_STARTED.md`)
 
-0. **Name your North Star** — what does someone do differently on Monday when this works?
-   Pick the archetype that fits (`NORTH_STAR.md`) and the ~20 questions that matter
-   (`QUESTION_LIBRARY.md`). *Skip this and you'll build a model nobody trusts.*
+0. **Let Ana propose your North Star from your data** — connect your data and context, then
+   let Ana scan it and draft what this ontology is *for* and the use case that fits; you
+   confirm or redirect (`NORTH_STAR.md` has the prompt). *Skip this and you'll build a model nobody trusts.*
 1. **Connect this repo to Ana** via the Git connector — Ana now reads the whole corpus as context.
 2. **Connect your data warehouse** (Redshift, BigQuery, Snowflake, …) — read-only is enough.
    Point Ana at any existing context you have too (dbt, LookML, a metrics wiki) — as corpus, not migration.

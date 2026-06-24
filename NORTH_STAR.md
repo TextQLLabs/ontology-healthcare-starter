@@ -21,25 +21,35 @@ start, not a finished model.
 The model you actually ship is the one **you and Ana build against real questions**, in
 your warehouse, committed to git as you go. This repo is the corpus you start from.
 
-## Step 1 — Decide what your ontology is *for*
+**And you won't fill anything out.** There's no questionnaire, no menu to pick from, no
+homework. Ana does the work: it scans the data you've connected, proposes your North Star
+and the use case that fits, and you confirm or redirect. Start there.
 
-Before connecting anything, answer one question with your stakeholders:
+## Let Ana tailor this to you (the actual first step)
 
-> **When this works, what does someone do differently on Monday morning?**
+Connect your data and any context you have (dbt models, dashboards, docs) to a thread,
+then paste this to Ana:
 
-That answer is your North Star. It is not "model all of healthcare." It is something
-narrow and real: *"the actuarial team stops waiting three days for a PMPM cut,"* or
-*"care managers see open gaps for their panel every morning."* Everything in this repo is
-in service of a North Star like that — and the parts that don't serve yours, you ignore.
+```
+Look at the data connected to this thread and any context I've attached (dbt models, dashboards, docs). Based on what you actually see — not assumptions:
+1. Summarize in 3-4 lines what we have: the key tables, the grain, and the domains it covers.
+2. Ask me 5-7 sharp scoping questions to pin down what we're really doing — who will use this, what decision it changes on Monday morning, which use case fits, what "working" looks like in 30 days, and where our data is messiest. A few at a time, not all at once.
+3. From my answers plus the data, recommend the use case that fits and draft our North Star: one short paragraph on what this ontology is for, plus the 6-8 questions it must answer in 30 days.
+4. Save it as north_star.md in the ontology and propose it as a reviewed change, so every later step builds toward it.
+```
 
-If you can't name the North Star, you are not ready to build the ontology. You are ready
-to have the North Star conversation. Do that first.
+That's the whole flow: **Ana scans → proposes a North Star → asks only what it can't infer
+from the data → you confirm or redirect.** It takes minutes, not a survey, and it produces a
+North Star grounded in *your* tables rather than a generic template. Everything else in this
+repo exists to make that proposal sharper and to give you the vocabulary to refine it.
 
-## The archetypes — pick the one that fits
+## What a North Star looks like (examples to spark yours)
 
-Most healthcare/life-sciences engagements start from one of three North Stars. Pick the
-one closest to yours; it tells you which surfaces, terminology, and governance in this
-repo to lead with — and which to leave for later.
+Most healthcare/life-sciences teams land on a North Star adjacent to one of the three below.
+These are **common examples, not a menu to pick from** — yours might be one of these, a blend,
+or something next to them. Ana drafts yours from your data; the value of reading these is the
+"lead with" hints, which tell you which surfaces, terminology, and governance in this repo
+become relevant once your North Star is set.
 
 ### A. BI parity — "match the dashboards we already trust"
 **For:** analytics teams who already have a warehouse and reports, and want Ana to
@@ -68,16 +78,37 @@ the CMS-HCC crosswalks, `notes/risk-adjustment-hcc.md`.
 governance here exists precisely because regulators ask you to show your work.
 
 *(Other common ones: cost/MLR management, utilization & readmissions, network adequacy.
-Same idea — name it, then lead with the surfaces that serve it.)*
+Same idea — Ana drafts this from your data; you refine it, then lead with the surfaces
+that serve it.)*
 
-## Step 2 — Feed your existing context as a corpus (don't migrate)
+## A few things this starter is great at
+
+Flavor to spark ideas — **not homework, and not a list to work through.** When Ana proposes
+your North Star, it'll pull from the kind of questions this repo already knows how to govern:
+
+- PMPM for a population over a period, trended monthly and decomposed into inpatient /
+  outpatient / professional / Rx. → `cost_pmpm.tql`
+- 30-day all-cause readmission rate, with the index/exclusion window done correctly. →
+  `readmission_rate.tql`
+- The open-gap work list for a HEDIS measure right now, with numerator/denominator visible. →
+  `hedis_measure.tql`
+- Population RAF trended, with the dx → HCC → coefficient chain fully auditable. →
+  `comorbidity_profile.tql` + HCC crosswalks
+- Medication adherence (PDC) for a drug class, share ≥ 0.80. → `rx_adherence_pdc.tql`
+- Prevalence of a condition by CCSR, and the top comorbidities co-occurring with it. →
+  `condition_prevalence.tql`, `comorbidity_profile.tql`
+- High-cost claimant concentration — the cost of the top 1% / 5% of members.
+- Any measure above, stratified by race/ethnicity, language, dual status, or geography
+  (with <11 small-cell suppression). → `governance-phi.md`
+
+## Feed your existing context as a corpus (don't migrate)
 
 You already have ontology — it's just scattered. dbt models, LookML, a metrics wiki, the
 spreadsheet where someone defined "active member." **Point Ana at all of it as additional
 context.** You are not migrating it into a rigid schema; you are giving Ana more to read.
 This repo + your existing definitions together are the starting corpus.
 
-## Step 3 — Use it, and let the model accrete
+## Use it, and let the model accrete
 
 This is the part the rigid-tool playbook gets wrong. **You do not finish the ontology and
 then start asking questions. You ask questions, and the ontology grows from the answers.**
@@ -126,6 +157,5 @@ This repo is a head start on that layer for healthcare — not a substitute for 
 
 ---
 
-**Next:** once you've named your North Star, see [`QUESTION_LIBRARY.md`](QUESTION_LIBRARY.md)
-to pick the ~20 questions that matter, then [`GETTING_STARTED.md`](GETTING_STARTED.md) to
-connect Ana and start.
+**Next:** let Ana propose your North Star from your data (the prompt above), then head to
+[`GETTING_STARTED.md`](GETTING_STARTED.md) to connect Ana and start building toward it.

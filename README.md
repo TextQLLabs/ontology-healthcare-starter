@@ -1,3 +1,7 @@
+> ⚠️ **Moved.** This starter kit now lives in **[TextQLLabs/ontology-starter-kits](https://github.com/TextQLLabs/ontology-starter-kits/tree/main/healthcare)** (one repo, folder per domain). This repository is archived.
+
+---
+
 # Healthcare & Life Sciences Ontology
 
 A **document of expertise** for healthcare and life-sciences data — the entity vocabulary,
